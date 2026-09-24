@@ -398,7 +398,7 @@ function setMode(e, st, mode, tick) {
     to_storage: "blockai:mode_to_storage",
     depositing: "blockai:mode_work",
     to_bed: "blockai:mode_to_home",
-    sleeping: "blockai:mode_work",
+    sleeping: "blockai:mode_sleep",
     to_rest: "blockai:mode_to_storage",
     resting: "blockai:mode_work",
   }[mode];
@@ -843,8 +843,10 @@ function nightStep(e, st, village, tick, total) {
         return true;
       }
       st.status = "Zzz… 寝ている";
-      // 押されてずれたら寝床に戻す
-      if (dist2h(bed.mid, e.location) > 0.3 * 0.3 || Math.abs(e.location.y - bed.mid.y) > 0.4) placeOnBed(e, bed);
+      // 押されてずれたり、向きが変わったりしたら寝床に戻す
+      const yaw = bedYaw(bed);
+      const turn = Math.abs(((e.getRotation().y - yaw + 540) % 360) - 180);
+      if (dist2h(bed.mid, e.location) > 0.3 * 0.3 || Math.abs(e.location.y - bed.mid.y) > 0.4 || turn > 8) placeOnBed(e, bed);
       return true;
     }
     case "to_rest": {
@@ -894,12 +896,22 @@ function goRest(e, st, village, tick) {
 }
 
 /**
+ * ベッドの頭側を向いたときの向き（度）
+ * @param {import("./beds.js").Bed} bed
+ */
+function bedYaw(bed) {
+  const dx = bed.head.x - bed.foot.x;
+  const dz = bed.head.z - bed.foot.z;
+  return (Math.atan2(-dx, dz) * 180) / Math.PI;
+}
+
+/**
  * @param {Entity} e
  * @param {import("./beds.js").Bed} bed
  */
 function placeOnBed(e, bed) {
   try {
-    e.teleport(bed.mid, { facingLocation: { x: bed.head.x + 0.5, y: bed.mid.y, z: bed.head.z + 0.5 } });
+    e.teleport(bed.mid, { rotation: { x: 0, y: bedYaw(bed) } });
   } catch (err) {
     // 無視
   }

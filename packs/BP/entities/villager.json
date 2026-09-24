@@ -59,6 +59,14 @@
           "priority": 8,
           "speed_multiplier": 0.6,
           "xz_dist": 6
+        },
+        "minecraft:behavior.random_look_around": {
+          "priority": 9
+        },
+        "minecraft:behavior.look_at_player": {
+          "priority": 7,
+          "look_distance": 6,
+          "probability": 0.02
         }
       },
       "blockai:mode_to_storage": {
@@ -90,6 +98,16 @@
       "blockai:mode_work": {
         "minecraft:behavior.random_look_around": {
           "priority": 9
+        },
+        "minecraft:behavior.look_at_player": {
+          "priority": 7,
+          "look_distance": 6,
+          "probability": 0.02
+        }
+      },
+      "blockai:mode_sleep": {
+        "minecraft:variant": {
+          "value": 0
         }
       },
       "blockai:mode_to_slot_0": {
@@ -665,14 +683,6 @@
       "minecraft:annotation.open_door": {},
       "minecraft:behavior.float": {
         "priority": 0
-      },
-      "minecraft:behavior.look_at_player": {
-        "priority": 7,
-        "look_distance": 6,
-        "probability": 0.02
-      },
-      "minecraft:behavior.random_look_around": {
-        "priority": 10
       }
     },
     "events": {
@@ -688,6 +698,7 @@
           "component_groups": [
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -718,6 +729,7 @@
           "component_groups": [
             "blockai:mode_idle",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -748,6 +760,7 @@
           "component_groups": [
             "blockai:mode_idle",
             "blockai:mode_to_storage",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -773,12 +786,44 @@
           ]
         }
       },
+      "blockai:mode_sleep": {
+        "remove": {
+          "component_groups": [
+            "blockai:mode_idle",
+            "blockai:mode_to_storage",
+            "blockai:mode_work",
+            "blockai:mode_to_slot_0",
+            "blockai:mode_to_slot_1",
+            "blockai:mode_to_slot_2",
+            "blockai:mode_to_slot_3",
+            "blockai:mode_to_slot_4",
+            "blockai:mode_to_slot_5",
+            "blockai:mode_to_slot_6",
+            "blockai:mode_to_slot_7",
+            "blockai:mode_to_slot_8",
+            "blockai:mode_to_slot_9",
+            "blockai:mode_to_slot_10",
+            "blockai:mode_to_slot_11",
+            "blockai:mode_to_slot_12",
+            "blockai:mode_to_slot_13",
+            "blockai:mode_to_slot_14",
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:mode_sleep"
+          ]
+        }
+      },
       "blockai:mode_to_slot_0": {
         "remove": {
           "component_groups": [
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
             "blockai:mode_to_slot_3",
@@ -809,6 +854,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_2",
             "blockai:mode_to_slot_3",
@@ -839,6 +885,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_3",
@@ -869,6 +916,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -899,6 +947,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -929,6 +978,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -959,6 +1009,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -989,6 +1040,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1019,6 +1071,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1049,6 +1102,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1079,6 +1133,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1109,6 +1164,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1139,6 +1195,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1169,6 +1226,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1199,6 +1257,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1229,6 +1288,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",
@@ -1259,6 +1319,7 @@
             "blockai:mode_idle",
             "blockai:mode_to_storage",
             "blockai:mode_work",
+            "blockai:mode_sleep",
             "blockai:mode_to_slot_0",
             "blockai:mode_to_slot_1",
             "blockai:mode_to_slot_2",

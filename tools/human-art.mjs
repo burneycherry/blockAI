@@ -403,7 +403,36 @@ export function drawHairOuter(img, ch, seed) {
     if (f === "back") return y <= 4 && hash(x, seed + 7) < 0.4 && y <= 1 + hash(x, seed + 9) * 4 ? c(x, y, 0.4) : null;
     return null;
   });
+  // 顔の横にかかる髪と、厚めの前髪（小顔に見せる）
+  /** @type {Record<string, number[]>} 横髪の幅・始まり・終わり・前髪の長さ */
+  const FRAME = {
+    long: [3, 3, 15, 5],
+    bob: [3, 3, 12, 5],
+    ponytail: [2, 4, 11, 4],
+    bun: [2, 4, 10, 3],
+    shaggy: [2, 2, 10, 4],
+    tied: [2, 3, 9, 3],
+  };
+  const fr = FRAME[st];
+  if (fr && (female || st === "shaggy" || st === "tied")) {
+    const [w, from, to, bang] = fr;
+    paint(img, P.hat, (f, x, y) => {
+      if (f !== "front") return null;
+      const edge = x < w ? x : x > 15 - w ? 15 - x : -1;
+      if (edge >= 0 && y >= from && y <= to - (edge === w - 1 ? 2 : 0) - Math.floor(hash(x, seed, 40) * 2)) {
+        return c(x, y, edge === w - 1 ? 0.34 : 0.44); // 内側の毛束は影
+      }
+      if (y < bang - (hash(x, seed, 42) < 0.3 ? 1 : 0) && hash(x, seed, 41) < 0.8) return c(x, y, y === bang - 1 ? 0.32 : 0.5);
+      return null;
+    });
+  }
   if (st === "long") {
+    // 肩から胸へ流れる髪
+    paint(img, P.jacket, (f, x, y, W) => {
+      if (f !== "front") return null;
+      const edge = x <= 1 || x >= W - 2;
+      return edge && y < 10 - Math.floor(hash(x, seed, 43) * 3) ? c(x, y, 0.4) : null;
+    });
     paint(img, P.hat, (f, x, y) => ((f === "back" || f === "right" || f === "left") && y >= 5 ? c(x, y, y >= 14 ? 0.3 : 0.44) : null));
     paint(img, P.jacket, (f, x, y, W) => {
       if (f !== "back") return null;

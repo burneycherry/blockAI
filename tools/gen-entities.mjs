@@ -37,6 +37,9 @@ if (!reg.includes(`MAX_SLOTS = ${SLOTS};`)) {
 const vPath = "packs/BP/entities/villager.json";
 const villager = JSON.parse(readFileSync(vPath, "utf8"));
 const ent = villager["minecraft:entity"];
+// 首を動かす行動は、モードごとの組に入れる（寝ている間に回らないように）
+delete ent.components["minecraft:behavior.look_at_player"];
+delete ent.components["minecraft:behavior.random_look_around"];
 const moveGroups = (family) => ({
   "minecraft:behavior.nearest_attackable_target": {
     priority: 2,
@@ -57,9 +60,16 @@ const moveGroups = (family) => ({
 const groups = {
   "blockai:mode_idle": {
     "minecraft:behavior.random_stroll": { priority: 8, speed_multiplier: 0.6, xz_dist: 6 },
+    "minecraft:behavior.random_look_around": { priority: 9 },
+    "minecraft:behavior.look_at_player": { priority: 7, look_distance: 6, probability: 0.02 },
   },
   "blockai:mode_to_storage": moveGroups("blockai_wp_storage"),
-  "blockai:mode_work": { "minecraft:behavior.random_look_around": { priority: 9 } },
+  "blockai:mode_work": {
+    "minecraft:behavior.random_look_around": { priority: 9 },
+    "minecraft:behavior.look_at_player": { priority: 7, look_distance: 6, probability: 0.02 },
+  },
+  // 寝ている間は、首や体を動かす行動を何も持たない
+  "blockai:mode_sleep": { "minecraft:variant": { value: 0 } },
 };
 for (let i = 0; i < SLOTS; i++) groups[`blockai:mode_to_slot_${i}`] = moveGroups(`blockai_wp_slot_${i}`);
 // 夜にベッドへ向かう

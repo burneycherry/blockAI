@@ -1,7 +1,7 @@
 // 調整用の定数をまとめたファイル
 
 /** パックのバージョン（manifest.json と合わせる） */
-export const VERSION = "0.12.3";
+export const VERSION = "0.12.4";
 
 export const VILLAGER_ID = "blockai:villager";
 export const STAFF_ID = "blockai:mayor_staff";

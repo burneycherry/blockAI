@@ -130,12 +130,11 @@ function human(id, { slim = false, bulk = 0 }) {
       tool("tool_axe", [
         { origin: [hx - 0.5, 12, -11], size: [1, 1, 13], uv: solid("wood") },
         { origin: [hx - 0.5, 12, 1.2], size: [1, 1, 0.8], uv: solid("woodDark") },
-        { origin: [hx - 0.75, 11.6, -11.6], size: [1.5, 2, 2.4], uv: solid("steelDark") },
+        { origin: [hx - 0.65, 11.8, -11.4], size: [1.3, 1.4, 1.8], uv: solid("steelDark") },
         { origin: [hx - 0.35, 10, -11.8], size: [0.7, 1.6, 2.8], uv: solid("steel") },
         { origin: [hx - 0.35, 8.6, -12.2], size: [0.7, 1.4, 3.4], uv: solid("steel") },
         { origin: [hx - 0.35, 7.6, -12.6], size: [0.7, 1, 4], uv: solid("steel") },
         { origin: [hx - 0.4, 7.2, -12.6], size: [0.8, 0.4, 4], uv: solid("edge") },
-        { origin: [hx - 0.4, 7.6, -12.9], size: [0.8, 3.8, 0.3], uv: solid("edge") },
       ]),
       // 鎌：白木の柄・黒い口金・内側に刃のある曲がった刃
       tool("tool_sickle", [

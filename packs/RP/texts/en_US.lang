@@ -1,4 +1,4 @@
-pack.name=blockAI Village v0.12.3 (Resources)
+pack.name=blockAI Village v0.12.4 (Resources)
 pack.description=Give jobs to AI villagers and grow your village
 entity.blockai:villager.name=AI Villager
 item.spawn_egg.entity.blockai:villager.name=Spawn AI Villager
