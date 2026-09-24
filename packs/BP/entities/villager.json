@@ -497,6 +497,10 @@
         "value": 20,
         "max": 20
       },
+      "minecraft:follow_range": {
+        "value": 64,
+        "max": 64
+      },
       "minecraft:attack": {
         "damage": 0
       },
