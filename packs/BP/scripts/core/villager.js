@@ -1,4 +1,4 @@
-import { ItemStack, world } from "@minecraft/server";
+import { world } from "@minecraft/server";
 import {
   ARRIVE_DISTANCE,
   LEVEL_XP,
@@ -15,7 +15,8 @@ import { CHARACTERS } from "./characters.js";
 import { assignBed, bedUsable, isNight, markBed, releaseBed, unmarkBed } from "./beds.js";
 import { addStat, getVillage, workArea } from "./village.js";
 import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, tasks } from "./tasks.js";
-import { canStand, dist2h, safeBlock, standPosNear, storageStand } from "./blocks.js";
+import { canStand, dist2h, standPosNear } from "./blocks.js";
+import { depositInto, hasStorage, nearestStorePoint, sourceOf, standFor } from "./storage.js";
 import { getJobDef, skillLevel } from "./registry.js";
 
 /**
@@ -604,13 +605,14 @@ function step(e, st, village, tick) {
     }
 
     case "to_storage": {
-      if (!village.storage) {
+      const point = nearestStorePoint(village, e.location);
+      if (!point) {
         setMode(e, st, "idle", tick);
         st.status = "§c倉庫がありません";
         return;
       }
-      const s = village.storage;
-      const d2 = dist2h({ x: s.x, y: s.y, z: s.z }, e.location, true);
+      const s = point.pos;
+      const d2 = dist2h(s, e.location, true);
       if (d2 <= ARRIVE_DISTANCE * ARRIVE_DISTANCE) {
         setMode(e, st, "depositing", tick);
         st.nextWork = tick + 10;
@@ -618,7 +620,7 @@ function step(e, st, village, tick) {
         return;
       }
       st.status = total > 0 ? `倉庫へ運んでいる (${total})` : "倉庫へ材料を取りに行っている";
-      const stand = storageStand(e.dimension, s);
+      const stand = standFor(e.dimension, point);
       if (travel(e, st, tick, s, stand)) warpTo(e, stand);
       return;
     }
@@ -630,14 +632,14 @@ function step(e, st, village, tick) {
       refreshStorageMarker(village);
       if (result === "missing") {
         setMode(e, st, "idle", tick);
-        st.status = "§c倉庫のチェストが無い！";
-        notifyMayor("§c[blockAI] 倉庫のチェストが見つかりません。村長の杖で登録し直してください。", tick);
+        st.status = "§c倉庫が無い！";
+        notifyMayor("§c[blockAI] 倉庫が見つかりません。村長メニューから倉庫を置いてください。", tick);
         return;
       }
       if (result === "full") {
         setMode(e, st, "idle", tick);
         st.status = "§c倉庫がいっぱい！";
-        notifyMayor(`§c[blockAI] ${getName(e)}「倉庫がいっぱいで入りません！」`, tick);
+        notifyMayor(`§c[blockAI] ${getName(e)}「倉庫がいっぱいで入りません！」§7（村レベルが上がると広くなります）`, tick);
         return;
       }
       setMode(e, st, "idle", tick);
@@ -660,7 +662,7 @@ function step(e, st, village, tick) {
 function decide(e, st, village, tick, job, total, cap) {
   // 夜は荷物をしまってから休む
   if (isNight()) {
-    if (total > 0 && village.storage) goStorage(e, st, village, tick);
+    if (total > 0 && hasStorage(village)) goStorage(e, st, village, tick);
     else goRest(e, st, village, tick);
     return;
   }
@@ -669,7 +671,7 @@ function decide(e, st, village, tick, job, total, cap) {
     return;
   }
   // 材料（種など）が足りなければ倉庫へ取りに行く。倉庫にも無ければしばらく諦める
-  if (village.storage && tick >= st.supplyAfter && job.needsSupply?.(e, getBag(e), (id) => getOption(e, job, id))) {
+  if (hasStorage(village) && tick >= st.supplyAfter && job.needsSupply?.(e, getBag(e), (id) => getOption(e, job, id))) {
     st.supplyAfter = tick + 20 * 60;
     goStorage(e, st, village, tick);
     return;
@@ -679,7 +681,7 @@ function decide(e, st, village, tick, job, total, cap) {
     setMode(e, st, "to_task", tick);
     return;
   }
-  if (total > 0 && village.storage) {
+  if (total > 0 && hasStorage(village)) {
     goStorage(e, st, village, tick);
     return;
   }
@@ -698,9 +700,9 @@ function decide(e, st, village, tick, job, total, cap) {
  * @param {number} tick
  */
 function goStorage(e, st, village, tick) {
-  if (!village.storage) {
+  if (!hasStorage(village)) {
     setMode(e, st, "idle", tick);
-    st.status = "§c倉庫がありません（村長の杖で登録してね）";
+    st.status = "§c倉庫がありません（村長メニューで置いてね）";
     return;
   }
   setMode(e, st, "to_storage", tick);
@@ -816,7 +818,7 @@ function nightStep(e, st, village, tick, total) {
     case "to_task":
     case "working":
       releaseTask(st);
-      if (total > 0 && village.storage) goStorage(e, st, village, tick);
+      if (total > 0 && hasStorage(village)) goStorage(e, st, village, tick);
       else goRest(e, st, village, tick);
       return true;
     case "to_storage":
@@ -850,13 +852,14 @@ function nightStep(e, st, village, tick, total) {
       return true;
     }
     case "to_rest": {
-      const s = village.storage ?? village.center;
+      const point = nearestStorePoint(village, e.location);
+      const s = point?.pos ?? village.center;
       st.status = "休みに戻っている";
-      if (dist2h(s, e.location, true) <= 3.5 * 3.5 || !village.storage) {
+      if (dist2h(s, e.location, true) <= 3.5 * 3.5 || !point) {
         setMode(e, st, "resting", tick);
         st.rested = true;
-      } else if (travel(e, st, tick, s, storageStand(e.dimension, s))) {
-        warpTo(e, storageStand(e.dimension, s));
+      } else if (travel(e, st, tick, s, standFor(e.dimension, point))) {
+        warpTo(e, standFor(e.dimension, point));
         setMode(e, st, "resting", tick);
         st.rested = true;
       }
@@ -1026,45 +1029,30 @@ function gainXp(e, amount) {
 }
 
 /**
- * 倉庫（チェスト等）に荷物を入れる
+ * 一番近い倉庫に荷物を入れ、職業ごとに材料を持ち出す
  * @param {Entity} e
  * @param {import("./village.js").VillageData} village
  * @param {Record<string, number>} carry
  * @returns {"ok" | "full" | "missing"}
  */
 function deposit(e, village, carry) {
-  const s = /** @type {Pos} */ (village.storage);
-  const block = safeBlock(e.dimension, s);
-  const container = block?.getComponent("minecraft:inventory")?.container;
-  if (!container) return "missing";
-  let left = 0;
-  for (const id of Object.keys(carry)) {
-    let count = carry[id];
-    while (count > 0) {
-      const stack = new ItemStack(id, Math.min(count, 64));
-      const n = stack.amount;
-      const rest = container.addItem(stack);
-      const put = n - (rest ? rest.amount : 0);
-      count -= put;
-      if (put > 0) addStat(id, put);
-      if (rest) break;
-    }
-    carry[id] = count;
-    left += count;
-  }
+  const point = nearestStorePoint(village, e.location);
+  if (!point) return "missing";
+  const result = depositInto(village, point, carry, (id, n) => addStat(id, n));
+  if (result === "missing") return result;
   // 職業ごとに、倉庫から材料を持ち出す（農家の種など）
   const job = getJob(e);
-  if (job.onStorage) {
+  const source = job.onStorage ? sourceOf(village, point) : undefined;
+  if (job.onStorage && source) {
     const bag = getBag(e);
     try {
-      job.onStorage(e, container, bag, (id) => getOption(e, job, id));
+      job.onStorage(e, source, bag, (id) => getOption(e, job, id));
     } catch (err) {
       console.warn(`[blockAI] onStorage error: ${err}`);
     }
     setBag(e, bag);
   }
-  e.dimension.playSound("random.chestclosed", { x: s.x + 0.5, y: s.y + 0.5, z: s.z + 0.5 });
-  return left > 0 ? "full" : "ok";
+  return result;
 }
 
 let lastNotify = -1000;

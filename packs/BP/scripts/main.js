@@ -1,10 +1,11 @@
 import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/server";
-import { STAFF_ID, VILLAGER_ID } from "./core/config.js";
+import { STAFF_ID, STOREHOUSE_ID, VILLAGER_ID } from "./core/config.js";
 import { getVillage } from "./core/village.js";
 import { cleanupMarkers, ensureStorageMarker, requestScan } from "./core/tasks.js";
 import { getAllVillagers, getJob, initVillager, noteHurt, tickAssist, tickVillagers } from "./core/villager.js";
 import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
+import { openStorehouseMenu } from "./core/storage-ui.js";
 import { syncTickingAreas } from "./core/loading.js";
 // 職業の部品を登録する
 import "./jobs/index.js";
@@ -50,9 +51,10 @@ world.afterEvents.itemUse.subscribe((ev) => {
   const player = ev.source;
   // 目の前に村人がいれば、その村人のメニュー
   const hits = player.getEntitiesFromViewDirection({ maxDistance: 6 });
-  const hit = hits.find((h) => h.entity.typeId === VILLAGER_ID);
+  const hit = hits.find((h) => h.entity.typeId === VILLAGER_ID || h.entity.typeId === STOREHOUSE_ID);
   if (hit) {
-    openFor(player, hit.entity);
+    if (hit.entity.typeId === STOREHOUSE_ID) openHouse(player, hit.entity);
+    else openFor(player, hit.entity);
     return;
   }
   // チェストなどを見ているときは、そちらの操作を優先する
@@ -66,10 +68,28 @@ world.afterEvents.itemUse.subscribe((ev) => {
   openSoon(() => openMainMenu(player));
 });
 
+/**
+ * @param {Player} player
+ * @param {import("@minecraft/server").Entity} house
+ */
+function openHouse(player, house) {
+  if (!canOpen(player)) return;
+  openSoon(() => openStorehouseMenu(player, house));
+}
+
+// 村の倉庫をタップ・使う（何を持っていても開く）
+world.afterEvents.playerInteractWithEntity.subscribe((ev) => {
+  if (ev.target.typeId === STOREHOUSE_ID) openHouse(ev.player, ev.target);
+});
+
 // 杖で村人をタップ（攻撃ボタン）
 world.afterEvents.entityHitEntity.subscribe((ev) => {
   const player = ev.damagingEntity;
   if (!(player instanceof Player)) return;
+  if (ev.hitEntity.typeId === STOREHOUSE_ID) {
+    openHouse(player, ev.hitEntity);
+    return;
+  }
   if (ev.hitEntity.typeId !== VILLAGER_ID) return;
   if (!holdsStaff(player)) return;
   openFor(player, ev.hitEntity);

@@ -42,6 +42,8 @@ import {
 } from "./villager.js";
 import { BUILD_NAMES, CHARACTERS } from "./characters.js";
 import { fallenCount, fallenNames, forget } from "./life.js";
+import { capacitySlots, getHouses, getStock, hasStorage, maxHouses, usedSlots } from "./storage.js";
+import { placeStorehouse } from "./storage-ui.js";
 
 /**
  * @typedef {import("@minecraft/server").Player} Player
@@ -78,7 +80,7 @@ const ITEM_NAMES = {
 };
 
 /** @param {string} id */
-function itemName(id) {
+export function itemName(id) {
   return ITEM_NAMES[/** @type {keyof typeof ITEM_NAMES} */ (id)] ?? id.replace("minecraft:", "");
 }
 
@@ -134,7 +136,9 @@ export async function openMainMenu(player) {
       }`;
     })(),
     `中心: ${village.center.x}, ${village.center.y}, ${village.center.z}`,
-    `倉庫: ${s ? `${s.x}, ${s.y}, ${s.z}${storageSpace(player, s)}` : "§c未登録§r"}`,
+    getHouses(village).length > 0
+      ? `倉庫: ${getHouses(village).length} / ${maxHouses(village)} 個（中身 ${usedSlots(getStock())} / ${capacitySlots(village)} マス）`
+      : `倉庫: ${s ? `チェスト ${s.x}, ${s.y}, ${s.z}${storageSpace(player, s)}` : "§c未設置§r（「村の倉庫を置く」で置けます）"}`,
   ].join("\n");
 
   const form = new ActionFormData()
@@ -142,7 +146,7 @@ export async function openMainMenu(player) {
     .body(body)
     .button("村人を雇う")
     .button("村人の一覧")
-    .button("倉庫を登録")
+    .button(`村の倉庫を置く（${getHouses(village).length} / ${maxHouses(village)}）`)
     .button("仕事場と立ち入り禁止エリア")
     .button("村の記録")
     .button("村の中心をここに移す")
@@ -158,7 +162,7 @@ export async function openMainMenu(player) {
       await openVillagerList(player);
       break;
     case 2:
-      registerStorage(player);
+      await storageMenu(player);
       break;
     case 3:
       await areaMenu(player);
@@ -176,6 +180,33 @@ export async function openMainMenu(player) {
       await villageSettings(player);
       break;
   }
+}
+
+/**
+ * 倉庫を置く（専用の倉庫）か、チェストを倉庫にする（旧方式）
+ * @param {Player} player
+ */
+async function storageMenu(player) {
+  const v = getVillage();
+  if (!v) return;
+  const res = await new ActionFormData()
+    .title("村の倉庫")
+    .body(
+      [
+        "§e村の倉庫§r：宝箱の形の倉庫を、今見ている場所に置きます。",
+        "・村の中にいくつも置けて（村レベルで増える）、中身はどの倉庫でも同じです。村人は一番近い倉庫に運びます。",
+        "・容量は村レベルで増えます（54 → 108 → 216 → 432 → 864 マス。1マス = 64個）。",
+        "・倉庫をタップすると、取り出す・しまうができます。",
+        "",
+        "§7チェストを倉庫にする（旧方式）：村の倉庫が1つも無いときだけ使われます。§r",
+      ].join("\n"),
+    )
+    .button(`村の倉庫を置く（${getHouses(v).length} / ${maxHouses(v)}）`)
+    .button("見ているチェストを倉庫にする（旧方式）")
+    .show(player);
+  if (res.canceled || res.selection === undefined) return;
+  if (res.selection === 0) placeStorehouse(player);
+  else registerStorage(player);
 }
 
 /**
@@ -517,8 +548,8 @@ async function chooseJob(player, v) {
   setJob(v, job.id);
   const lv = levelOf(getXp(v, job.id));
   player.sendMessage(`§a[blockAI] ${getName(v)} は ${job.name} Lv${lv} になりました。§7${job.description}`);
-  if (job.work && !getVillage()?.storage) {
-    player.sendMessage("§e[blockAI] ヒント: 倉庫を登録すると、集めた物をチェストに運んでくれます。");
+  if (job.work && !hasStorage(getVillage())) {
+    player.sendMessage("§e[blockAI] ヒント: 村長メニューで「村の倉庫」を置くと、集めた物を運んでくれます。");
   }
 }
 
@@ -613,8 +644,8 @@ async function showHelp(player) {
         "§e1. 村を作る§r",
         "村長の杖を使い、村の中心を決めます。",
         "",
-        "§e2. 倉庫を登録§r",
-        "チェストを置き、それを見ながら「倉庫を登録」。",
+        "§e2. 村の倉庫を置く§r",
+        "村長メニューの「村の倉庫を置く」で、見ている場所に倉庫（宝箱）を置きます。村レベルが上がると、置ける数と容量が増えます（1マス = 64個）。中身はどの倉庫でも同じで、村人は一番近い倉庫へ運びます。倉庫をタップすると、取り出す・しまうができます。",
         "",
         "§e3. 村人を雇う§r",
         "メニューから雇うか、スポーンエッグで呼びます。",

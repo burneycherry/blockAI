@@ -1,0 +1,17 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.blockai.storehouse.lid": {
+      "loop": true,
+      "bones": {
+        "lid": {
+          "rotation": [
+            "-v.lid",
+            0,
+            0
+          ]
+        }
+      }
+    }
+  }
+}

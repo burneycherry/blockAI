@@ -2,6 +2,7 @@ import { system, world } from "@minecraft/server";
 import { DEFAULT_MAX_TASKS, WP_STORAGE_ID, WP_TASK_ID } from "./config.js";
 import { getJobDef, workingJobs } from "./registry.js";
 import { isProtected, workArea } from "./village.js";
+import { getHouses } from "./storage.js";
 import { dist2h, key, safeBlock, storageStand } from "./blocks.js";
 
 /**
@@ -222,7 +223,8 @@ export function nearestTask(jobId, dimId, from, maxDist = Infinity) {
  * @param {import("./village.js").VillageData} village
  */
 export function ensureStorageMarker(village) {
-  if (!village.storage) {
+  // 専用の倉庫があれば、村人は倉庫そのものを目指すので目印は要らない
+  if (!village.storage || getHouses(village).length > 0) {
     removeEntityById(storageWpId);
     storageWpId = undefined;
     return;

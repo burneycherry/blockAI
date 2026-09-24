@@ -221,22 +221,16 @@ registerJob({
   },
 
   // 倉庫から種を持ち出す
-  onStorage(e, container, bag, opt) {
+  onStorage(e, source, bag, opt) {
     if (!opt("plant")) return;
-    for (let i = 0; i < container.size && seedCount(bag) < BAG_MAX; i++) {
-      const item = container.getItem(i);
-      if (!item || !(item.typeId in SEED_TO_CROP)) continue;
-      const isFood = item.typeId === "minecraft:carrot" || item.typeId === "minecraft:potato";
+    for (const seed of Object.keys(SEED_TO_CROP)) {
+      const isFood = seed === "minecraft:carrot" || seed === "minecraft:potato";
       if (isFood && !opt("food_seeds")) continue;
-      const limit = isFood ? FOOD_SEED_MAX - (bag[item.typeId] ?? 0) : BAG_MAX - seedCount(bag);
-      const take = Math.min(item.amount, limit, BAG_MAX - seedCount(bag));
-      if (take <= 0) continue;
-      bag[item.typeId] = (bag[item.typeId] ?? 0) + take;
-      if (take >= item.amount) container.setItem(i, undefined);
-      else {
-        item.amount -= take;
-        container.setItem(i, item);
-      }
+      const room = BAG_MAX - seedCount(bag);
+      const limit = isFood ? Math.min(room, FOOD_SEED_MAX - (bag[seed] ?? 0)) : room;
+      if (limit <= 0) continue;
+      const got = source.take(seed, limit);
+      if (got > 0) bag[seed] = (bag[seed] ?? 0) + got;
     }
   },
 

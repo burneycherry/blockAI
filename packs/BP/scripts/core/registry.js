@@ -37,7 +37,7 @@ export const MAX_SLOTS = 16;
  *   options?: { id: string, label: string, default: boolean }[],
  *   skills?: Skill[],
  *   work?: (ctx: WorkContext) => number | boolean,
- *   onStorage?: (e: Entity, container: import("@minecraft/server").Container, bag: Record<string, number>, opt: (id: string) => boolean) => void,
+ *   onStorage?: (e: Entity, source: import("./storage.js").StoreSource, bag: Record<string, number>, opt: (id: string) => boolean) => void,
  *   needsSupply?: (e: Entity, bag: Record<string, number>, opt: (id: string) => boolean) => boolean,
  *   slot?: number
  * }} JobDef

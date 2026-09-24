@@ -1,0 +1,32 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockai:storehouse",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/blockai/storehouse"
+      },
+      "geometry": {
+        "default": "geometry.blockai.storehouse"
+      },
+      "scripts": {
+        "pre_animation": [
+          "v.target = (query.has_property('blockai:open') && query.property('blockai:open')) ? 70.0 : 0.0;",
+          "v.lid = math.lerp(v.lid ?? 0.0, v.target, 0.25);"
+        ],
+        "animate": [
+          "lid"
+        ]
+      },
+      "animations": {
+        "lid": "animation.blockai.storehouse.lid"
+      },
+      "render_controllers": [
+        "controller.render.blockai_storehouse"
+      ]
+    }
+  }
+}

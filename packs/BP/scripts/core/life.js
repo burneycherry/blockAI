@@ -2,7 +2,7 @@
 import { ItemStack, world } from "@minecraft/server";
 import { VILLAGER_ID } from "./config.js";
 import { getVillage, reviveOn } from "./village.js";
-import { storageStand } from "./blocks.js";
+import { nearestStorePoint, standFor } from "./storage.js";
 import { isNight } from "./beds.js";
 import { getAllVillagers, getCarry, refreshLooks } from "./villager.js";
 
@@ -145,7 +145,8 @@ export function reviveFallen() {
   if (!village) return;
   const today = world.getDay();
   const dim = world.getDimension(village.dim);
-  const at = village.storage ? storageStand(dim, village.storage) : village.center;
+  const point = nearestStorePoint(village, village.center);
+  const at = point ? standFor(dim, point) : village.center;
   if (!dim.isChunkLoaded(at)) return;
   /** @type {Fallen[]} */
   const rest = [];
