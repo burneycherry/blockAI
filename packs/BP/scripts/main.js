@@ -133,6 +133,32 @@ world.afterEvents.entityDie.subscribe(
   { entityTypes: [VILLAGER_ID] },
 );
 
+// 村の倉庫は壊れない。ダメージは打ち消し、万一壊れたらその場に置き直す
+world.afterEvents.entityHurt.subscribe(
+  (ev) => {
+    const h = ev.hurtEntity.isValid ? ev.hurtEntity.getComponent("minecraft:health") : undefined;
+    if (h && h.currentValue > 0) h.resetToMaxValue();
+  },
+  { entityTypes: [STOREHOUSE_ID] },
+);
+world.afterEvents.entityDie.subscribe(
+  (ev) => {
+    const e = ev.deadEntity;
+    try {
+      const loc = e.location;
+      const rot = e.getRotation();
+      const dim = e.dimension;
+      system.run(() => {
+        const house = dim.spawnEntity(STOREHOUSE_ID, loc);
+        house.setRotation(rot);
+      });
+    } catch (err) {
+      // 無視
+    }
+  },
+  { entityTypes: [STOREHOUSE_ID] },
+);
+
 // 初めて来たプレイヤーに村長の杖を渡す
 world.afterEvents.playerSpawn.subscribe((ev) => {
   if (!ev.initialSpawn) return;

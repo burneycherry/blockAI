@@ -1,4 +1,4 @@
-// 村の倉庫（blockai:storehouse）の見た目を生成する：焦げ茶の板張りに鉄枠の宝箱。村人が使うとふたが開く
+// 村の倉庫（blockai:storehouse）の見た目を生成する：普通のチェストの形で、焦げ目のある板張りと鉄枠。村人が使うとふたが開く
 // 使い方: node tools/gen-storehouse.mjs        （書き出し）
 //         node tools/gen-storehouse.mjs --check（最新かどうかだけ確認）
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -84,23 +84,13 @@ const iron = all(face(48, 0, 8, 8));
 const ironDark = all(face(56, 0, 8, 8));
 const box = (/** @type {number[]} */ origin, /** @type {number[]} */ size, /** @type {any} */ uv) => ({ origin, size, uv });
 
-// ふたは奥行き方向に丸い（横から見るとアーチ）
-const LID = [
-  [9, 2, 12],
-  [11, 1.5, 11],
-  [12.5, 1, 9],
-  [13.5, 0.7, 6],
+// 形は普通のチェストと同じ（14x14x14。本体10段＋ふた4段＋留め金）
+const lidCubes = [
+  box([-7, 10, -7], [14, 4, 14], wood),
+  box([-7.15, 13.4, -7.15], [14.3, 0.7, 14.3], iron), // ふたの上の縁
+  box([-7.15, 10, -7.15], [14.3, 0.6, 14.3], ironDark), // ふたの下の縁
+  box([-1, 7, -8], [2, 4, 1], ironDark), // 留め金
 ];
-const lidCubes = [];
-for (const [y, h, d] of LID) {
-  lidCubes.push(box([-7, y, -d / 2], [14, h, d], wood));
-  // 両端の鉄の縁（アーチに沿う）
-  lidCubes.push(box([-7.1, y, -d / 2 - 0.1], [0.9, h, d + 0.2], iron));
-  lidCubes.push(box([6.2, y, -d / 2 - 0.1], [0.9, h, d + 0.2], iron));
-}
-lidCubes.push(box([-7.2, 9, -6.2], [14.4, 0.6, 12.4], ironDark)); // ふたの縁
-lidCubes.push(box([-0.8, 8.2, -6.6], [1.6, 2.6, 0.5], ironDark)); // 留め金
-
 writeJson("packs/RP/models/entity/storehouse.geo.json", {
   format_version: "1.12.0",
   "minecraft:geometry": [
@@ -120,22 +110,17 @@ writeJson("packs/RP/models/entity/storehouse.geo.json", {
           parent: "root",
           pivot: [0, 0, 0],
           cubes: [
-            box([-7, 0, -6], [14, 9, 12], wood),
-            box([-7.2, 0, -6.2], [14.4, 1, 12.4], ironDark), // 下の縁
-            box([-7.2, 8.2, -6.2], [14.4, 0.8, 12.4], iron), // 上の縁
+            box([-7, 0, -7], [14, 10, 14], wood),
+            box([-7.15, 0, -7.15], [14.3, 0.7, 14.3], ironDark), // 下の縁
+            box([-7.15, 9.4, -7.15], [14.3, 0.6, 14.3], iron), // 上の縁
             // 角の鉄枠
-            box([-7.3, 0, -6.3], [1, 9, 1], iron),
-            box([6.3, 0, -6.3], [1, 9, 1], iron),
-            box([-7.3, 0, 5.3], [1, 9, 1], iron),
-            box([6.3, 0, 5.3], [1, 9, 1], iron),
-            // 錠前と、横の取っ手
-            box([-1.3, 4.5, -6.6], [2.6, 3.6, 0.6], ironDark),
-            box([-0.5, 5.4, -6.9], [1, 1.4, 0.4], iron),
-            box([7, 5, -1.5], [0.5, 1.5, 3], ironDark),
-            box([-7.5, 5, -1.5], [0.5, 1.5, 3], ironDark),
+            box([-7.25, 0, -7.25], [1, 10, 1], iron),
+            box([6.25, 0, -7.25], [1, 10, 1], iron),
+            box([-7.25, 0, 6.25], [1, 10, 1], iron),
+            box([6.25, 0, 6.25], [1, 10, 1], iron),
           ],
         },
-        { name: "lid", parent: "root", pivot: [0, 9, 6], cubes: lidCubes },
+        { name: "lid", parent: "root", pivot: [0, 10, 7], cubes: lidCubes },
       ],
     },
   ],
