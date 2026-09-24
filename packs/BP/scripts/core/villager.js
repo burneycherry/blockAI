@@ -10,7 +10,7 @@ import {
   carryCapacity,
   workInterval,
 } from "./config.js";
-import { addStat, getVillage } from "./village.js";
+import { addStat, getVillage, workArea } from "./village.js";
 import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, tasks } from "./tasks.js";
 import { dist2h, safeBlock, storageStand } from "./blocks.js";
 import { getJobDef, skillLevel } from "./registry.js";
@@ -548,10 +548,10 @@ function decide(e, st, village, tick, job, total, cap) {
   }
   setMode(e, st, "idle", tick);
   st.status = job.status?.waiting ?? "";
-  // 村から離れすぎていたら戻る
-  const c = village.center;
-  const d2 = dist2h(c, e.location, true);
-  if (d2 > 40 * 40 && !isWatched(e)) warpTo(e, c);
+  // 仕事場から離れすぎていたら戻る
+  const area = workArea(village, job.id);
+  const d2 = dist2h(area, e.location, true);
+  if (d2 > (area.r + 8) * (area.r + 8) && !isWatched(e)) warpTo(e, area);
 }
 
 /**

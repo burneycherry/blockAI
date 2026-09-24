@@ -1,10 +1,23 @@
 import { system } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity, workInterval } from "./config.js";
-import { PLANNED_JOBS, allJobs, getJobDef } from "./registry.js";
+import { PLANNED_JOBS, allJobs, getJobDef, workingJobs } from "./registry.js";
 import { MAX_LEVEL } from "./config.js";
-import { foundVillage, getVillage, setStorage, setTestMode } from "./village.js";
-import { clearAllTasks, ensureStorageMarker } from "./tasks.js";
+import {
+  VILLAGE_LEVELS,
+  addProtect,
+  foundVillage,
+  getVillage,
+  removeProtect,
+  setJobArea,
+  setKeepLoaded,
+  setStorage,
+  setTestMode,
+  villageLevel,
+  workArea,
+} from "./village.js";
+import { syncTickingAreas } from "./loading.js";
+import { clearAllTasks, clearJobTasks, ensureStorageMarker } from "./tasks.js";
 import {
   carryTotal,
   getAllVillagers,
@@ -86,6 +99,7 @@ export async function openMainMenu(player) {
       .show(player);
     if (res.selection === 1) {
       foundVillage(player.dimension.id, player.location, player.name);
+      await applyLoading(player);
       player.sendMessage("§a[blockAI] 村ができました！ 次はチェストを置いて「倉庫を登録」しましょう。");
       player.dimension.playSound("random.levelup", player.location);
     }
@@ -105,6 +119,12 @@ export async function openMainMenu(player) {
     `村長: §e${village.mayor}§r`,
     `村人: ${villagers.length} / ${MAX_VILLAGERS} 人`,
     `  ${jobText}`,
+    (() => {
+      const vl = villageLevel(village);
+      return `村レベル: ${vl.level} / ${VILLAGE_LEVELS.length}（仕事の範囲 半径${vl.radius}）${
+        vl.next !== undefined ? `\n  次のレベルまで 納品 ${vl.total} / ${vl.next}` : ""
+      }`;
+    })(),
     `中心: ${village.center.x}, ${village.center.y}, ${village.center.z}`,
     `倉庫: ${s ? `${s.x}, ${s.y}, ${s.z}` : "§c未登録§r"}`,
   ].join("\n");
@@ -115,10 +135,11 @@ export async function openMainMenu(player) {
     .button("村人を雇う")
     .button("村人の一覧")
     .button("倉庫を登録")
+    .button("仕事場と立ち入り禁止エリア")
     .button("村の記録")
     .button("村の中心をここに移す")
     .button("遊び方")
-    .button(village.testMode ? "§6テスト設定（テストモード中）" : "テスト設定");
+    .button(village.testMode ? "§6村の設定（テストモード中）" : "村の設定");
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
   switch (res.selection) {
@@ -132,16 +153,19 @@ export async function openMainMenu(player) {
       registerStorage(player);
       break;
     case 3:
-      await showRecord(player);
+      await areaMenu(player);
       break;
     case 4:
+      await showRecord(player);
+      break;
+    case 5:
       await moveCenter(player);
       break;
     case 6:
-      await testSettings(player);
-      break;
-    case 5:
       await showHelp(player);
+      break;
+    case 7:
+      await villageSettings(player);
       break;
   }
 }
@@ -266,20 +290,146 @@ async function editOptions(player, v) {
 }
 
 /**
- * テスト設定（特技をLv1から使えるようにする）
+ * 村の設定（遠くでも村を動かす・テストモード）
  * @param {Player} player
  */
-async function testSettings(player) {
+async function villageSettings(player) {
   const v = getVillage();
   if (!v) return;
   const res = await new ModalFormData()
-    .title("テスト設定")
+    .title("村の設定")
+    .toggle("遠くにいても村を動かす（村と仕事場を常に読み込む。端末の負荷が少し増えます）", {
+      defaultValue: v.keepLoaded !== false,
+    })
     .toggle("テストモード: 特技をレベルに関係なく全部使えるようにする", { defaultValue: !!v.testMode })
     .show(player);
   if (res.canceled || !res.formValues) return;
-  const on = res.formValues[0] === true;
-  setTestMode(on);
-  player.sendMessage(on ? "§6[blockAI] テストモードON: 全員が特技を使えます。" : "§a[blockAI] テストモードOFF: 特技はレベルに応じて覚えます。");
+  const keep = res.formValues[0] === true;
+  const test = res.formValues[1] === true;
+  setKeepLoaded(keep);
+  setTestMode(test);
+  await applyLoading(player);
+  player.sendMessage(
+    `§a[blockAI] 設定を保存しました。遠くでも村を動かす: ${keep ? "ON" : "OFF"} / テストモード: ${test ? "ON" : "OFF"}`,
+  );
+}
+
+/**
+ * 読み込み範囲を反映し、入りきらなかった場所があれば知らせる
+ * @param {Player} player
+ */
+async function applyLoading(player) {
+  try {
+    const failed = await syncTickingAreas(getVillage());
+    if (failed.length > 0) {
+      player.sendMessage(`§e[blockAI] 範囲が広すぎて、常に読み込めない場所があります: ${failed.join("、")}（プレイヤーが近くにいる間は動きます）`);
+    }
+  } catch (err) {
+    console.warn(`[blockAI] ticking area error: ${err}`);
+  }
+}
+
+/**
+ * 仕事場と立ち入り禁止エリアのメニュー
+ * @param {Player} player
+ */
+async function areaMenu(player) {
+  const v = getVillage();
+  if (!v) return;
+  const jobs = workingJobs();
+  const form = new ActionFormData()
+    .title("仕事場と立ち入り禁止エリア")
+    .body("職業ごとに働く場所を決めたり、村人に触らせたくない場所を登録できます。");
+  for (const j of jobs) {
+    const a = v.jobAreas?.[j.id];
+    form.button(`${j.name}の仕事場\n${a ? `§2(${a.x}, ${a.z}) 半径${a.r}` : "§8村全体"}`);
+  }
+  form.button(`立ち入り禁止エリア（${(v.protect ?? []).length}か所）`);
+  const res = await form.show(player);
+  if (res.canceled || res.selection === undefined) return;
+  const job = jobs[res.selection];
+  if (job) await jobAreaMenu(player, job);
+  else await protectMenu(player);
+}
+
+/**
+ * @param {Player} player
+ * @param {import("./registry.js").JobDef} job
+ */
+async function jobAreaMenu(player, job) {
+  const v = getVillage();
+  if (!v) return;
+  const cur = workArea(v, job.id);
+  const res = await new ActionFormData()
+    .title(`${job.name}の仕事場`)
+    .body(
+      `今の仕事場: ${v.jobAreas?.[job.id] ? `(${cur.x}, ${cur.z}) 半径${cur.r}` : `村全体（半径${cur.r}）`}\n\n` +
+        `今立っている場所を中心に、${job.name}が働く範囲を決められます。\n` +
+        "森や畑など、仕事をしてほしい場所の真ん中に立って選んでください。",
+    )
+    .button("今いる場所を仕事場にする")
+    .button("村全体に戻す")
+    .show(player);
+  if (res.canceled || res.selection === undefined) return;
+  if (res.selection === 1) {
+    setJobArea(job.id, undefined);
+    clearJobTasks(job.id);
+    await applyLoading(player);
+    player.sendMessage(`§a[blockAI] ${job.name}は村全体で働きます。`);
+    return;
+  }
+  const r = await new ModalFormData()
+    .title(`${job.name}の仕事場`)
+    .slider("仕事場の広さ（半径・ブロック）", 8, 32, { valueStep: 4, defaultValue: 16 })
+    .show(player);
+  if (r.canceled || !r.formValues) return;
+  const radius = Number(r.formValues[0] ?? 16);
+  setJobArea(job.id, { ...player.location, r: radius });
+  clearJobTasks(job.id);
+  await applyLoading(player);
+  player.sendMessage(`§a[blockAI] ${job.name}の仕事場を、ここから半径${radius}ブロックにしました。`);
+}
+
+/**
+ * 立ち入り禁止エリア
+ * @param {Player} player
+ */
+async function protectMenu(player) {
+  const v = getVillage();
+  if (!v) return;
+  const list = v.protect ?? [];
+  const form = new ActionFormData()
+    .title("立ち入り禁止エリア")
+    .body("登録した範囲では、村人が木を切ったり作物を刈ったりしません。\n登録済みのエリアを選ぶと削除できます。")
+    .button("今いる場所を立ち入り禁止にする");
+  for (const a of list) form.button(`${a.name}\n§8(${a.x}, ${a.z}) 半径${a.r}`);
+  const res = await form.show(player);
+  if (res.canceled || res.selection === undefined) return;
+  if (res.selection === 0) {
+    const r = await new ModalFormData()
+      .title("立ち入り禁止にする")
+      .textField("名前", "例: 家の庭", { defaultValue: `エリア${list.length + 1}` })
+      .slider("広さ（半径・ブロック）", 2, 24, { valueStep: 1, defaultValue: 6 })
+      .show(player);
+    if (r.canceled || !r.formValues) return;
+    const name = String(r.formValues[0] ?? "").trim().slice(0, 16) || `エリア${list.length + 1}`;
+    const radius = Number(r.formValues[1] ?? 6);
+    addProtect(name, { ...player.location, r: radius });
+    clearAllTasks();
+    player.sendMessage(`§a[blockAI] 「${name}」（半径${radius}）を立ち入り禁止にしました。`);
+    return;
+  }
+  const target = list[res.selection - 1];
+  if (!target) return;
+  const ok = await new MessageFormData()
+    .title("立ち入り禁止エリア")
+    .body(`「${target.name}」を削除しますか？`)
+    .button1("やめる")
+    .button2("削除する")
+    .show(player);
+  if (ok.selection !== 1) return;
+  removeProtect(res.selection - 1);
+  player.sendMessage(`§a[blockAI] 「${target.name}」を削除しました。`);
 }
 
 /** @param {number} lv */
@@ -396,6 +546,7 @@ async function moveCenter(player) {
   const old = getVillage();
   foundVillage(player.dimension.id, player.location, old ? old.mayor : player.name);
   clearAllTasks();
+  await applyLoading(player);
   player.sendMessage("§a[blockAI] 村の中心を移しました。");
 }
 
@@ -419,7 +570,11 @@ async function showHelp(player) {
         "・木こり: 村の周りの木を切って、苗木を植え直す（作業設定で植え直しをOFFにもできる）",
         "・農家: 実った小麦・ニンジン等を収穫して植え直す。空いている畑には倉庫の種をまく（新しく耕すことはしない）",
         "",
-        "§e5. 成長§r",
+        "§e5. 仕事場と立ち入り禁止§r",
+        "村長メニューの「仕事場と立ち入り禁止エリア」で、職業ごとに働く場所を決めたり、触らせたくない場所を登録できます。",
+        "倉庫への納品が増えると村レベルが上がり、仕事の範囲が広がります（半径32→64）。",
+        "",
+        "§e6. 成長§r",
         "働くと経験値が貯まりレベルアップ（最大Lv10）。作業が速くなり、たくさん運べるようになります（Lv10で256個）。",
         "Lv5・Lv8・Lv10 で職業ごとの特技を覚えます（村人メニューで確認できます）。",
         "経験値は職業ごとに記録されます。別の職業に変えても、元の職業に戻せば続きからです。",

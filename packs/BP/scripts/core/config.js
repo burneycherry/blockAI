@@ -1,7 +1,7 @@
 // 調整用の定数をまとめたファイル
 
 /** パックのバージョン（manifest.json と合わせる） */
-export const VERSION = "0.10.0";
+export const VERSION = "0.11.0";
 
 export const VILLAGER_ID = "blockai:villager";
 export const STAFF_ID = "blockai:mayor_staff";
@@ -10,8 +10,6 @@ export const WP_STORAGE_ID = "blockai:wp_storage";
 
 /** 村人の最大人数 */
 export const MAX_VILLAGERS = 20;
-/** 村の中心から仕事を探す半径（ブロック） */
-export const WORK_RADIUS = 32;
 /** この距離内にプレイヤーがいれば「見えている」とみなして本物の動きを再現する */
 export const VIEW_DISTANCE = 40;
 /** 到着とみなす距離 */

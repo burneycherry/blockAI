@@ -4,6 +4,7 @@ import { getVillage } from "./core/village.js";
 import { cleanupMarkers, ensureStorageMarker, requestScan } from "./core/tasks.js";
 import { getAllVillagers, getJob, initVillager, tickVillagers } from "./core/villager.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
+import { syncTickingAreas } from "./core/loading.js";
 // 職業の部品を登録する
 import "./jobs/index.js";
 
@@ -115,6 +116,8 @@ system.runInterval(() => {
     requestScan(village, active);
   }
   if (tick % 200 === 0) cleanupMarkers();
+  // 村の範囲（村レベルで広がる）を読み込み続ける設定を反映
+  if (tick % 1200 === 100) syncTickingAreas(village).catch((err) => console.warn(`[blockAI] ticking area: ${err}`));
 }, 10);
 
 console.log("[blockAI] loaded");

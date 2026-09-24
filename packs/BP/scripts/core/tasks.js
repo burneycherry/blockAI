@@ -1,6 +1,7 @@
 import { system, world } from "@minecraft/server";
-import { DEFAULT_MAX_TASKS, WORK_RADIUS, WP_STORAGE_ID, WP_TASK_ID } from "./config.js";
+import { DEFAULT_MAX_TASKS, WP_STORAGE_ID, WP_TASK_ID } from "./config.js";
 import { getJobDef, workingJobs } from "./registry.js";
+import { isProtected, workArea } from "./village.js";
 import { dist2h, key, safeBlock, storageStand } from "./blocks.js";
 
 /**
@@ -34,7 +35,7 @@ export function resetScanWait() {
 }
 
 /**
- * 村の周りを少しずつ調べて、各職業の仕事を登録する
+ * 村の周り（職業ごとの仕事場）を少しずつ調べて、各職業の仕事を登録する
  * @param {import("./village.js").VillageData} village
  * @param {Set<string>} activeJobs 村人が就いている職業
  */
@@ -44,54 +45,69 @@ export function requestScan(village, activeJobs) {
     (j) => j.scan && activeJobs.has(j.id) && countTasks(j.id) < (j.maxTasks ?? DEFAULT_MAX_TASKS),
   );
   if (wanted.length === 0) return;
+  // 同じ範囲で働く職業をまとめる（範囲ごとに1回だけ調べる）
+  /** @type {Map<string, { area: import("./village.js").Area, jobs: import("./registry.js").JobDef[] }>} */
+  const regions = new Map();
+  for (const j of wanted) {
+    const area = workArea(village, j.id);
+    const k = `${area.x},${area.z},${area.r}`;
+    const r = regions.get(k) ?? { area, jobs: [] };
+    r.jobs.push(j);
+    regions.set(k, r);
+  }
   scanning = true;
-  system.runJob(scanJob(village, wanted));
+  system.runJob(scanJob(village, [...regions.values()]));
 }
 
 /**
  * @param {import("./village.js").VillageData} village
- * @param {import("./registry.js").JobDef[]} wanted
+ * @param {{ area: import("./village.js").Area, jobs: import("./registry.js").JobDef[] }[]} regions
  * @returns {Generator<void, void, void>}
  */
-function* scanJob(village, wanted) {
+function* scanJob(village, regions) {
   const before = tasks.size;
   try {
     const dim = world.getDimension(village.dim);
-    const c = village.center;
-    // 中心に近い場所から順番に調べる
-    const cols = [];
-    for (let dx = -WORK_RADIUS; dx <= WORK_RADIUS; dx++) {
-      for (let dz = -WORK_RADIUS; dz <= WORK_RADIUS; dz++) {
-        const d = dx * dx + dz * dz;
-        if (d <= WORK_RADIUS * WORK_RADIUS) cols.push({ dx, dz, d });
-      }
-    }
-    cols.sort((a, b) => a.d - b.d);
     let n = 0;
-    for (const col of cols) {
-      const jobs = wanted.filter((j) => countTasks(j.id) < (j.maxTasks ?? DEFAULT_MAX_TASKS));
-      if (jobs.length === 0) break;
-      const x = c.x + col.dx;
-      const z = c.z + col.dz;
-      try {
-        if (dim.isChunkLoaded({ x, y: c.y, z })) {
+    for (const { area, jobs: regionJobs } of regions) {
+      // 中心に近い場所から順番に調べる
+      const cols = [];
+      for (let dx = -area.r; dx <= area.r; dx++) {
+        for (let dz = -area.r; dz <= area.r; dz++) {
+          const d = dx * dx + dz * dz;
+          if (d <= area.r * area.r) cols.push({ dx, dz, d });
+        }
+      }
+      cols.sort((a, b) => a.d - b.d);
+      for (const col of cols) {
+        const jobs = regionJobs.filter((j) => countTasks(j.id) < (j.maxTasks ?? DEFAULT_MAX_TASKS));
+        if (jobs.length === 0) break;
+        const x = area.x + col.dx;
+        const z = area.z + col.dz;
+        if (++n % 24 === 0) yield;
+        // 立ち入り禁止エリアは調べない
+        if (isProtected(village, x, z)) continue;
+        try {
+          if (!dim.isChunkLoaded({ x, y: area.y, z })) continue;
           let top = dim.getTopmostBlock({ x, z });
           // 雪が積もっていたら、その下を見る
           for (let i = 0; i < 2 && top && top.typeId === "minecraft:snow_layer"; i++) {
             top = safeBlock(dim, { x, y: top.y - 1, z });
           }
-          if (top) {
-            for (const job of jobs) {
-              /** @type {import("./registry.js").AddTask} */
-              const add = (stand, blocks, data) => addTask(job.id, dim, stand, blocks, data ?? {});
-              job.scan?.(dim, top, add, (p) => claimed.has(key(p)));
-            }
+          if (!top) continue;
+          for (const job of jobs) {
+            /** @type {import("./registry.js").AddTask} */
+            const add = (stand, blocks, data) => {
+              // 立ち入り禁止エリアにかかるブロックは除く
+              const ok = blocks.filter((b) => !isProtected(village, b.x, b.z));
+              addTask(job.id, dim, stand, ok, data ?? {});
+            };
+            job.scan?.(dim, top, add, (p) => claimed.has(key(p)));
           }
+        } catch (e) {
+          // 読み込み中の場所などは無視
         }
-      } catch (e) {
-        // 読み込み中の場所などは無視
       }
-      if (++n % 24 === 0) yield;
     }
   } finally {
     scanning = false;
@@ -271,6 +287,15 @@ export function cleanupMarkers() {
       // 無視
     }
   }
+}
+
+/**
+ * その職業の仕事を破棄する（仕事場を変えたときなど）
+ * @param {string} jobId
+ */
+export function clearJobTasks(jobId) {
+  for (const t of [...tasks.values()]) if (t.jobId === jobId) removeTask(t.id);
+  nextScanTick = 0;
 }
 
 /** すべての仕事を破棄する（村の移動時など） */
