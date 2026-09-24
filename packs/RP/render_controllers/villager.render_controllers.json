@@ -92,7 +92,7 @@
           "tool_axe": "v.outfit == 2 && !v.sleep"
         },
         {
-          "tool_hoe": "v.outfit == 1 && !v.sleep"
+          "tool_sickle": "v.outfit == 1 && !v.sleep"
         },
         {
           "brim": "v.outfit == 1"
