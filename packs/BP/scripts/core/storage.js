@@ -182,14 +182,20 @@ export function standFor(dim, p) {
  * @param {import("@minecraft/server").Entity} house
  */
 export function openLid(house) {
+  setLid(house, true);
+  system.runTimeout(() => setLid(house, false), 30);
+}
+
+/**
+ * ふたを開ける・閉める（音つき）
+ * @param {import("@minecraft/server").Entity} house
+ * @param {boolean} open
+ */
+export function setLid(house, open) {
   try {
-    house.setProperty("blockai:open", true);
-    house.dimension.playSound("random.chestopen", house.location, { volume: 0.6 });
-    system.runTimeout(() => {
-      if (!house.isValid) return;
-      house.setProperty("blockai:open", false);
-      house.dimension.playSound("random.chestclosed", house.location, { volume: 0.6 });
-    }, 30);
+    if (!house.isValid || house.getProperty("blockai:open") === open) return;
+    house.setProperty("blockai:open", open);
+    house.dimension.playSound(open ? "random.chestopen" : "random.chestclosed", house.location, { volume: 0.6 });
   } catch (err) {
     // 無視
   }

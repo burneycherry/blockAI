@@ -152,6 +152,8 @@ writeJson("packs/RP/render_controllers/storehouse.render_controllers.json", {
   format_version: "1.8.0",
   render_controllers: {
     "controller.render.blockai_storehouse": {
+      // 叩かれても赤く光らない
+      is_hurt_color: { r: 0, g: 0, b: 0, a: 0 },
       geometry: "Geometry.default",
       materials: [{ "*": "Material.default" }],
       textures: ["Texture.default"],
@@ -176,6 +178,22 @@ writeJson("packs/RP/entity/storehouse.entity.json", {
       },
       animations: { lid: "animation.blockai.storehouse.lid" },
       render_controllers: ["controller.render.blockai_storehouse"],
+    },
+  },
+});
+
+// 叩かれたときの音は鳴らさない
+writeJson("packs/RP/sounds.json", {
+  entity_sounds: {
+    entities: {
+      "blockai:storehouse": {
+        volume: 1.0,
+        pitch: 1.0,
+        events: {
+          hurt: { sound: "random.chestopen", volume: 0.0 },
+          death: { sound: "random.chestclosed", volume: 0.0 },
+        },
+      },
     },
   },
 });

@@ -282,7 +282,8 @@ async function openVillagerList(player) {
   for (const v of villagers) {
     const lv = levelOf(getXp(v));
     const status = getStatus(v).replace(/§./g, "");
-    form.button(`${getName(v)}  [${getJob(v).name} Lv${lv}]\n${status}`);
+    const job = getJob(v);
+    form.button(`${getName(v)}  [${job.name}${job.work ? ` Lv${lv}` : ""}]\n${status}`);
   }
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
@@ -310,8 +311,8 @@ export async function openVillagerMenu(player, v) {
     `名前: §e${getName(v)}§r  §7(${ch.gender === "m" ? "男性" : "女性"}・${BUILD_NAMES[ch.build]})§r`,
     `職業: ${job.name}`,
     `体力: §c${hp.cur} / ${hp.max}§r  §7(一番高い職業レベルで増える)§r`,
-    `レベル: ${lv} / ${MAX_LEVEL}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})`,
-    `  作業の速さ ${(workIntervalSec(lv)).toFixed(2)}秒/個・一度に ${carryCapacity(lv)}個 運べる`,
+    job.work ? `レベル: ${lv} / ${MAX_LEVEL}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})` : "§7無職なのでレベルはありません。職業を与えると、その職業のレベルが上がります。§r",
+    job.work ? `  作業の速さ ${(workIntervalSec(lv)).toFixed(2)}秒/個・一度に ${carryCapacity(lv)}個 運べる` : "",
     others.length > 0 ? `ほかの職業の経験: ${others.join(" / ")}` : "",
     ...(job.skills ?? []).map((sk) => {
       const has = lv >= sk.level || !!getVillage()?.testMode;
@@ -580,7 +581,7 @@ async function chooseJob(player, v) {
   }
   setJob(v, job.id);
   const lv = levelOf(getXp(v, job.id));
-  player.sendMessage(`§a[blockAI] ${getName(v)} は ${job.name} Lv${lv} になりました。§7${job.description}`);
+  player.sendMessage(`§a[blockAI] ${getName(v)} は ${job.name}${job.work ? ` Lv${lv}` : ""} になりました。§7${job.description}`);
   if (job.work && !hasStorage(getVillage())) {
     player.sendMessage("§e[blockAI] ヒント: 村長メニューで「村の倉庫」を置くと、集めた物を運んでくれます。");
   }

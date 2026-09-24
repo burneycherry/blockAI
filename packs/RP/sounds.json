@@ -1,0 +1,20 @@
+{
+  "entity_sounds": {
+    "entities": {
+      "blockai:storehouse": {
+        "volume": 1,
+        "pitch": 1,
+        "events": {
+          "hurt": {
+            "sound": "random.chestopen",
+            "volume": 0
+          },
+          "death": {
+            "sound": "random.chestclosed",
+            "volume": 0
+          }
+        }
+      }
+    }
+  }
+}

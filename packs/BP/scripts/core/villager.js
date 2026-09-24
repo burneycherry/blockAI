@@ -357,7 +357,8 @@ export function refreshLooks(e) {
 function updateNameTag(e, status) {
   const job = getJob(e);
   const lv = levelOf(getXp(e));
-  const head = `§e${getName(e)}§r §7[${job.name} Lv${lv}]§r`;
+  // 無職にはレベルが無い
+  const head = `§e${getName(e)}§r §7[${job.name}${job.work ? ` Lv${lv}` : ""}]§r`;
   const tag = status ? `${head}\n§f${status}` : head;
   if (e.nameTag !== tag) e.nameTag = tag;
 }

@@ -11,6 +11,7 @@ import {
   getHouses,
   getStock,
   maxHouses,
+  setLid,
   takeFromStock,
   usedSlots,
 } from "./storage.js";
@@ -67,6 +68,20 @@ export function placeStorehouse(player) {
  * @param {Entity} house
  */
 export async function openStorehouseMenu(player, house) {
+  // 開けている間はふたを開けておく
+  setLid(house, true);
+  try {
+    await storehouseMenu(player, house);
+  } finally {
+    setLid(house, false);
+  }
+}
+
+/**
+ * @param {Player} player
+ * @param {Entity} house
+ */
+async function storehouseMenu(player, house) {
   const v = getVillage();
   if (!v) {
     player.sendMessage("§e[blockAI] 先に村長の杖で村を作ってください。");

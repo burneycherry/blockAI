@@ -94,8 +94,8 @@ function* scanJob(village, regions) {
     }
   } finally {
     scanning = false;
-    // 何も見つからなければ30秒休む
-    nextScanTick = system.currentTick + (tasks.size > before ? 40 : 600);
+    // 何も見つからなければ10秒休む（木が育ったらすぐ気づけるように、長くしすぎない）
+    nextScanTick = system.currentTick + (tasks.size > before ? 40 : 200);
   }
 }
 
