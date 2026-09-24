@@ -8,7 +8,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { CHARACTERS } from "../packs/BP/scripts/core/characters.js";
 import { encodePng } from "./png.mjs";
-import { Img, OUTFITS, SWATCH, drawCharacter, drawHairOuter } from "./human-art.mjs";
+import { Img, OUTFITS, SIZE, SWATCH, drawCharacter, drawHairOuter, stampSwatches } from "./human-art.mjs";
 
 const check = process.argv.includes("--check");
 let stale = 0;
@@ -52,11 +52,11 @@ CHARACTERS.forEach((ch, ci) => {
     o.clothes(img, ch, ci * 13 + 1);
     drawHairOuter(img, ch, ci * 13 + 1);
     o.headwear?.(img, ch, ci * 13 + 1);
-    for (const [x, y, c] of Object.values(SWATCH)) img.set(/** @type {number} */ (x), /** @type {number} */ (y), /** @type {number[]} */ (c));
+    stampSwatches(img);
     const key = `c${ci}_${o.id}`;
     texKeys.push(key);
     texMap[key] = `${TEX_DIR}/${key}`;
-    write(`packs/RP/${TEX_DIR}/${key}.png`, encodePng(64, 64, img.px));
+    write(`packs/RP/${TEX_DIR}/${key}.png`, encodePng(SIZE, SIZE, img.px));
   });
 });
 
@@ -223,7 +223,7 @@ writeJson("packs/RP/animations/human.animation.json", {
         body: { rotation: { "0.0": [0, 0, 0], "0.12": [0, -12, 0], "0.3": [0, 8, 0], "0.45": [0, 0, 0] } },
       },
     },
-    // ほっそり体型：胴・腕・脚を細くし、頭を少し大きく（アニメ風）
+    // ほっそり体型：胴・腕・脚を細くする
     "animation.blockai.human.slim": {
       loop: true,
       bones: {
@@ -232,7 +232,6 @@ writeJson("packs/RP/animations/human.animation.json", {
         leftArm: { scale: [0.8, 1, 0.8] },
         rightLeg: { scale: [0.75, 1, 0.8] },
         leftLeg: { scale: [0.75, 1, 0.8] },
-        head: { scale: 1.08 },
       },
     },
     // ベッドで寝る（体の中心を軸に横にする）
