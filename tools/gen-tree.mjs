@@ -160,7 +160,9 @@ out("packs/BP/entities/falling_tree.json", {
     },
     components: {
       "minecraft:type_family": { family: ["blockai_prop"] },
-      "minecraft:collision_box": { width: 0.2, height: 0.2 },
+      "minecraft:collision_box": { width: 0.01, height: 0.01 },
+      // タップ・攻撃の当たり判定を地面の下へ逃がす（チェスト等の操作を邪魔しない）
+      "minecraft:custom_hit_test": { hitboxes: [{ width: 0.01, height: 0.01, pivot: [0, -64, 0] }] },
       "minecraft:health": { value: 1, max: 1 },
       "minecraft:damage_sensor": { triggers: [{ cause: "all", deals_damage: "no" }] },
       "minecraft:physics": { has_gravity: false, has_collision: false },

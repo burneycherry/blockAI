@@ -44,6 +44,17 @@ const ITEM_NAMES = {
   "minecraft:potato": "ジャガイモ",
   "minecraft:beetroot": "ビートルート",
   "minecraft:beetroot_seeds": "ビートルートの種",
+  "minecraft:oak_sapling": "オークの苗木",
+  "minecraft:spruce_sapling": "トウヒの苗木",
+  "minecraft:birch_sapling": "シラカバの苗木",
+  "minecraft:jungle_sapling": "ジャングルの苗木",
+  "minecraft:acacia_sapling": "アカシアの苗木",
+  "minecraft:dark_oak_sapling": "ダークオークの苗木",
+  "minecraft:cherry_sapling": "サクラの苗木",
+  "minecraft:mangrove_propagule": "マングローブの芽",
+  "minecraft:pale_oak_sapling": "ペールオークの苗木",
+  "minecraft:stick": "棒",
+  "minecraft:apple": "リンゴ",
 };
 
 /** @param {string} id */

@@ -33,8 +33,21 @@
         ]
       },
       "minecraft:collision_box": {
-        "width": 0.2,
-        "height": 0.2
+        "width": 0.01,
+        "height": 0.01
+      },
+      "minecraft:custom_hit_test": {
+        "hitboxes": [
+          {
+            "width": 0.01,
+            "height": 0.01,
+            "pivot": [
+              0,
+              -64,
+              0
+            ]
+          }
+        ]
       },
       "minecraft:health": {
         "value": 1,

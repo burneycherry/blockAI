@@ -162,35 +162,44 @@ registerJob({
   ],
 
   scan(dim, top, addTask, isClaimed) {
-    // 実った作物 → 収穫
-    if (isMatureCrop(top) && !isClaimed(top)) {
+    // 一番上のブロックが「畑の土」の場合と「作物」の場合の両方に対応する
+    // （作物は当たり判定が無いので、その下の畑の土が一番上として返ることがある）
+    let cropPos;
+    if (top.typeId === "minecraft:farmland") cropPos = { x: top.x, y: top.y + 1, z: top.z };
+    else if (top.typeId in CROPS) cropPos = { x: top.x, y: top.y, z: top.z };
+    else return;
+    if (isClaimed(cropPos)) return;
+    const here = safeBlock(dim, cropPos);
+    if (!here) return;
+
+    // 実った作物 → 収穫（周り5×5の実った作物をまとめて1つの仕事に）
+    if (isMatureCrop(here)) {
       const blocks = [];
       for (let dx = -2; dx <= 2; dx++) {
         for (let dz = -2; dz <= 2; dz++) {
-          const p = { x: top.x + dx, y: top.y, z: top.z + dz };
+          const p = { x: cropPos.x + dx, y: cropPos.y, z: cropPos.z + dz };
           if (isClaimed(p)) continue;
           const b = safeBlock(dim, p);
           if (b && isMatureCrop(b)) blocks.push(p);
         }
       }
       // 末尾から取り出すので、近い順になるよう並べる
-      blocks.sort((a, b) => dist2(b, top) - dist2(a, top));
-      addTask({ x: top.x, y: top.y, z: top.z }, blocks, { kind: "harvest" });
+      blocks.sort((a, b) => dist2(b, cropPos) - dist2(a, cropPos));
+      addTask(cropPos, blocks, { kind: "harvest" });
       return;
     }
+
     // 何も植わっていない畑 → 種まき
-    if (top.typeId !== "minecraft:farmland" || pendingPlantTasks() >= MAX_PLANT_TASKS) return;
-    const first = { x: top.x, y: top.y + 1, z: top.z };
-    if (isClaimed(first)) return;
+    if (!here.isAir || pendingPlantTasks() >= MAX_PLANT_TASKS) return;
     const blocks = [];
     for (let dx = -2; dx <= 2; dx++) {
       for (let dz = -2; dz <= 2; dz++) {
-        const p = { x: first.x + dx, y: first.y, z: first.z + dz };
+        const p = { x: cropPos.x + dx, y: cropPos.y, z: cropPos.z + dz };
         if (!isClaimed(p) && isEmptyFarmland(dim, p)) blocks.push(p);
       }
     }
-    blocks.sort((a, b) => dist2(b, first) - dist2(a, first));
-    addTask(first, blocks, { kind: "plant" });
+    blocks.sort((a, b) => dist2(b, cropPos) - dist2(a, cropPos));
+    addTask(cropPos, blocks, { kind: "plant" });
   },
 
   work(ctx) {

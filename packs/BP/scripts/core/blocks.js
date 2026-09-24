@@ -55,6 +55,21 @@ export function standPosNear(dim, p) {
 }
 
 /**
+ * 倉庫（チェスト）の横で立てる場所
+ * @param {Dimension} dim
+ * @param {Pos} s
+ */
+export function storageStand(dim, s) {
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    for (const dy of [0, -1, 1]) {
+      const p = { x: s.x + dx, y: s.y + dy, z: s.z + dz };
+      if (canStand(dim, p)) return p;
+    }
+  }
+  return { x: s.x, y: s.y + 1, z: s.z };
+}
+
+/**
  * @param {Pos} a
  * @param {Pos} b
  */

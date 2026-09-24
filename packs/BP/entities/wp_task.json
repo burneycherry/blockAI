@@ -13,8 +13,8 @@
         ]
       },
       "minecraft:collision_box": {
-        "width": 0.2,
-        "height": 0.2
+        "width": 0.01,
+        "height": 0.01
       },
       "minecraft:health": {
         "value": 1,
@@ -45,6 +45,19 @@
         "breathes_air": true,
         "suffocate_time": 0,
         "total_supply": 15
+      },
+      "minecraft:custom_hit_test": {
+        "hitboxes": [
+          {
+            "width": 0.01,
+            "height": 0.01,
+            "pivot": [
+              0,
+              -64,
+              0
+            ]
+          }
+        ]
       }
     },
     "component_groups": {

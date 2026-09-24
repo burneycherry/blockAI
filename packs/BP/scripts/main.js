@@ -50,6 +50,13 @@ world.afterEvents.itemUse.subscribe((ev) => {
     openFor(player, hit.entity);
     return;
   }
+  // チェストなどを見ているときは、そちらの操作を優先する
+  try {
+    const block = player.getBlockFromViewDirection({ maxDistance: 6 })?.block;
+    if (block?.getComponent("minecraft:inventory")) return;
+  } catch (err) {
+    // 無視
+  }
   if (!canOpen(player)) return;
   openSoon(() => openMainMenu(player));
 });

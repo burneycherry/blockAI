@@ -1,7 +1,7 @@
 import { system, world } from "@minecraft/server";
 import { DEFAULT_MAX_TASKS, WORK_RADIUS, WP_STORAGE_ID, WP_TASK_ID } from "./config.js";
 import { getJobDef, workingJobs } from "./registry.js";
-import { dist2h, key } from "./blocks.js";
+import { dist2h, key, safeBlock, storageStand } from "./blocks.js";
 
 /**
  * @typedef {import("./registry.js").Task} Task
@@ -27,6 +27,11 @@ let storageWpId = /** @type {string | undefined} */ (undefined);
 let scanning = false;
 /** 次に検索してよい tick（見つからなかったときは間隔をあける） */
 let nextScanTick = 0;
+
+/** すぐに次の検索をしてよいことにする（職業を変えたときなど） */
+export function resetScanWait() {
+  nextScanTick = 0;
+}
 
 /**
  * 村の周りを少しずつ調べて、各職業の仕事を登録する
@@ -70,7 +75,11 @@ function* scanJob(village, wanted) {
       const z = c.z + col.dz;
       try {
         if (dim.isChunkLoaded({ x, y: c.y, z })) {
-          const top = dim.getTopmostBlock({ x, z });
+          let top = dim.getTopmostBlock({ x, z });
+          // 雪が積もっていたら、その下を見る
+          for (let i = 0; i < 2 && top && top.typeId === "minecraft:snow_layer"; i++) {
+            top = safeBlock(dim, { x, y: top.y - 1, z });
+          }
           if (top) {
             for (const job of jobs) {
               /** @type {import("./registry.js").AddTask} */
@@ -205,7 +214,9 @@ export function ensureStorageMarker(village) {
   const s = village.storage;
   if (!dim.isChunkLoaded(s)) return;
   try {
-    const wp = dim.spawnEntity(WP_STORAGE_ID, { x: s.x + 0.5, y: s.y + 1, z: s.z + 0.5 });
+    // チェストの上に置くとチェストを開けにくくなるので、横の立ち位置に置く
+    const st = storageStand(dim, s);
+    const wp = dim.spawnEntity(WP_STORAGE_ID, { x: st.x + 0.5, y: st.y, z: st.z + 0.5 });
     storageWpId = wp.id;
   } catch (e2) {
     storageWpId = undefined;

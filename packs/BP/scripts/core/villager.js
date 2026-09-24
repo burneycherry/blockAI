@@ -11,8 +11,8 @@ import {
   workInterval,
 } from "./config.js";
 import { addStat, getVillage } from "./village.js";
-import { nearestTask, refreshStorageMarker, removeTask, tasks } from "./tasks.js";
-import { canStand, dist2h, safeBlock } from "./blocks.js";
+import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, tasks } from "./tasks.js";
+import { dist2h, safeBlock, storageStand } from "./blocks.js";
 import { getJobDef, skillLevel } from "./registry.js";
 
 /**
@@ -210,6 +210,7 @@ export function initVillager(e) {
  */
 export function setJob(e, jobId) {
   e.setDynamicProperty("blockai:job", jobId);
+  resetScanWait();
   applyLooks(e);
   const st = states.get(e.id);
   if (st) {
@@ -331,20 +332,6 @@ function warpTo(e, p) {
   }
 }
 
-/**
- * 倉庫の横で立てる場所
- * @param {import("@minecraft/server").Dimension} dim
- * @param {Pos} s
- */
-function storageStand(dim, s) {
-  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    for (const dy of [0, -1, 1]) {
-      const p = { x: s.x + dx, y: s.y + dy, z: s.z + dz };
-      if (canStand(dim, p)) return p;
-    }
-  }
-  return { x: s.x, y: s.y + 1, z: s.z };
-}
 
 /**
  * 全村人の1ステップ（0.5秒ごと）
