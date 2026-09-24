@@ -76,6 +76,8 @@ registerJob({
   maxTasks: 6,
   options: [{ id: "replant", label: "切った後に苗木を植え直す", default: true }],
   skills: [
+    { id: "leaves", level: 5, name: "葉っぱ払い", description: "木を切り終えると葉もきれいに片付け、リンゴ・棒・苗木を拾ってくる" },
+    { id: "grow", level: 8, name: "植林名人", description: "植え直した苗木に骨粉をまいて、早く育つようにする" },
     { id: "felling", level: 10, name: "倒木", description: "木を根元から一気に切り倒す。木が倒れて消えると、原木がまとめて手に入る" },
   ],
 
@@ -141,7 +143,7 @@ registerJob({
     });
     // 末尾から取り出すので、上の原木から切っていく
     logs.sort((a, b) => a.y - b.y);
-    addTask(standPosNear(dim, base), logs, { bases });
+    addTask(standPosNear(dim, base), logs, { bases, box: boxOf(logs) });
   },
 
   work(ctx) {
@@ -161,7 +163,7 @@ registerJob({
       dim.playSound("dig.wood", center(p));
       lookAt(e, center(p));
     }
-    if (task.blocks.length === 0) afterTree(dim, task.data.bases ?? [], logType, carry, opt("replant"));
+    if (task.blocks.length === 0) afterTree(ctx, logType);
     return true;
   },
 });
@@ -192,18 +194,8 @@ function fellTree(ctx) {
 
   // 原木と、その木の自然の葉を消す（倒れた木のモデルに置き換える）
   for (const p of logs) safeBlock(dim, p)?.setType("minecraft:air");
-  const minX = Math.min(...logs.map((p) => p.x)) - 2;
-  const maxX = Math.max(...logs.map((p) => p.x)) + 2;
-  const minZ = Math.min(...logs.map((p) => p.z)) - 2;
-  const maxZ = Math.max(...logs.map((p) => p.z)) + 2;
-  for (let x = minX; x <= maxX; x++) {
-    for (let z = minZ; z <= maxZ; z++) {
-      for (let y = minY; y <= maxY + 3; y++) {
-        const b = safeBlock(dim, { x, y, z });
-        if (b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true) b.setType("minecraft:air");
-      }
-    }
-  }
+  const leaves = clearLeaves(dim, task.data.box ?? boxOf(logs));
+  if (ctx.skill("leaves")) leafDrops(carry, mainLog, leaves);
   for (const id of Object.keys(counts)) addCarry(carry, id, counts[id]);
 
   if (watched) {
@@ -212,7 +204,7 @@ function fellTree(ctx) {
     // 木が倒れて消えるまで見届ける
     ctx.wait(70);
   }
-  afterTree(dim, task.data.bases ?? [], mainLog, carry, opt("replant"));
+  afterTree(ctx, mainLog, true);
   return logs.length;
 }
 
@@ -266,17 +258,90 @@ function showFallingTree(e, base, height, logType) {
 }
 
 /**
- * 切り終わった後: 植え直すか、苗木を持ち帰る
- * @param {import("@minecraft/server").Dimension} dim
- * @param {import("../core/registry.js").Pos[]} bases
+ * 切り終わった後の片付け
+ *  - 葉っぱ払い（Lv5）: 葉を片付けて、リンゴ・棒・苗木を拾う（倒木では済んでいる）
+ *  - 植え直す / 苗木を持ち帰る。植林名人（Lv8）なら骨粉をまく
+ * @param {import("../core/registry.js").WorkContext} ctx
  * @param {string} logType
- * @param {Record<string, number>} carry
- * @param {boolean} doReplant
+ * @param {boolean} [leavesDone]
  */
-function afterTree(dim, bases, logType, carry, doReplant) {
-  if (doReplant) replant(dim, bases, logType);
-  // 開拓したいときは植え直さない（苗木は持ち帰る）
-  else if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], 1);
+function afterTree(ctx, logType, leavesDone = false) {
+  const { e, task, carry, watched } = ctx;
+  const dim = e.dimension;
+  if (!leavesDone && ctx.skill("leaves") && task.data.box) {
+    const n = clearLeaves(dim, task.data.box);
+    leafDrops(carry, logType, n);
+    if (watched && n > 0) dim.playSound("dig.grass", e.location);
+  }
+  if (!ctx.opt("replant")) {
+    // 開拓したいときは植え直さない（苗木は持ち帰る）
+    if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], 1);
+    return;
+  }
+  const planted = replant(dim, task.data.bases ?? [], logType);
+  if (ctx.skill("grow")) {
+    for (const p of planted) {
+      const b = safeBlock(dim, p);
+      if (!b) continue;
+      try {
+        // 骨粉の効果: 次の成長のタイミングで木になる
+        b.setPermutation(b.permutation.withState("age_bit", true));
+      } catch (err) {
+        // age_bit が無い苗木（マングローブ等）は何もしない
+      }
+      if (watched) dim.spawnParticle("minecraft:crop_growth_emitter", center(p));
+    }
+  }
+}
+
+/**
+ * 原木の範囲を囲む箱
+ * @param {import("../core/registry.js").Pos[]} logs
+ */
+function boxOf(logs) {
+  return {
+    minX: Math.min(...logs.map((p) => p.x)),
+    maxX: Math.max(...logs.map((p) => p.x)),
+    minY: Math.min(...logs.map((p) => p.y)),
+    maxY: Math.max(...logs.map((p) => p.y)),
+    minZ: Math.min(...logs.map((p) => p.z)),
+    maxZ: Math.max(...logs.map((p) => p.z)),
+  };
+}
+
+/**
+ * 木の周りの自然の葉を消す（プレイヤーが置いた葉は残す）。消した数を返す
+ * @param {import("@minecraft/server").Dimension} dim
+ * @param {{minX:number,maxX:number,minY:number,maxY:number,minZ:number,maxZ:number}} box
+ */
+function clearLeaves(dim, box) {
+  let n = 0;
+  for (let x = box.minX - 3; x <= box.maxX + 3; x++) {
+    for (let z = box.minZ - 3; z <= box.maxZ + 3; z++) {
+      for (let y = box.minY; y <= box.maxY + 3; y++) {
+        const b = safeBlock(dim, { x, y, z });
+        if (b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true) {
+          b.setType("minecraft:air");
+          n++;
+        }
+      }
+    }
+  }
+  return n;
+}
+
+/**
+ * 葉から拾える物（バニラの落下率よりは少し多め）
+ * @param {Record<string, number>} carry
+ * @param {string} logType
+ * @param {number} leaves 片付けた葉の数
+ */
+function leafDrops(carry, logType, leaves) {
+  if (leaves <= 0) return;
+  const roll = (per) => Math.floor(leaves / per) + (Math.random() < (leaves % per) / per ? 1 : 0);
+  addCarry(carry, "minecraft:stick", roll(20));
+  if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], roll(25));
+  if (logType === "minecraft:oak_log" || logType === "minecraft:dark_oak_log") addCarry(carry, "minecraft:apple", roll(40));
 }
 
 /**
@@ -286,8 +351,10 @@ function afterTree(dim, bases, logType, carry, doReplant) {
  * @param {string} logType
  */
 function replant(dim, allBases, logType) {
+  /** @type {import("../core/registry.js").Pos[]} */
+  const planted = [];
   const sapling = SAPLINGS[logType];
-  if (!sapling) return;
+  if (!sapling) return planted;
   // 2x2 の木（ダークオークなど）は4本、それ以外は1本
   const big = sapling === "minecraft:dark_oak_sapling" || sapling === "minecraft:pale_oak_sapling";
   const bases = big ? allBases.slice(0, 4) : allBases.slice(0, 1);
@@ -297,9 +364,11 @@ function replant(dim, allBases, logType) {
     if (b && below && b.isAir && SOIL.has(below.typeId)) {
       try {
         b.setType(sapling);
+        planted.push(p);
       } catch (e) {
         // 植えられない場合は諦める
       }
     }
   }
+  return planted;
 }

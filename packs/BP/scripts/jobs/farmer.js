@@ -59,6 +59,59 @@ function pendingPlantTasks() {
   return n;
 }
 
+/** 緑の手（Lv8）のとき、作物がどこまで育った状態から始まるか */
+const GREEN_GROWTH = 3;
+
+/**
+ * 実った作物を1つ収穫して、すぐに植え直す
+ * @param {import("../core/registry.js").WorkContext} ctx
+ */
+function harvestOne(ctx) {
+  const { e, task, carry, watched } = ctx;
+  const p = takeBlock(task);
+  if (!p) return false;
+  const dim = e.dimension;
+  const b = safeBlock(dim, p);
+  if (!b || !isMatureCrop(b)) return false;
+  const crop = CROPS[b.typeId];
+  b.setPermutation(b.permutation.withState("growth", ctx.skill("green") ? GREEN_GROWTH : 0));
+  let n = crop.min + Math.floor(Math.random() * (crop.max - crop.min + 1));
+  if (ctx.skill("bumper") && Math.random() < 0.33) n += 1;
+  addCarry(carry, crop.item, n);
+  if (crop.seed !== crop.item && Math.random() < 0.5) addCarry(carry, crop.seed, 1);
+  if (watched) {
+    dim.playSound("dig.grass", center(p));
+    lookAt(e, center(p));
+  }
+  return true;
+}
+
+/**
+ * 空いている畑に種を1つまく
+ * @param {import("../core/registry.js").WorkContext} ctx
+ */
+function plantOne(ctx) {
+  const { e, task, watched, bag } = ctx;
+  const p = takeBlock(task);
+  if (!p) return false;
+  const dim = e.dimension;
+  const b = safeBlock(dim, p);
+  if (!b || !ctx.opt("plant") || !isEmptyFarmland(dim, p)) return false;
+  const seed = chooseSeed(dim, p, bag);
+  if (!seed) return false;
+  b.setType(SEED_TO_CROP[seed]);
+  if (ctx.skill("green")) {
+    const placed = safeBlock(dim, p);
+    placed?.setPermutation(placed.permutation.withState("growth", GREEN_GROWTH));
+  }
+  bag[seed] -= 1;
+  if (watched) {
+    dim.playSound("use.grass", center(p));
+    lookAt(e, center(p));
+  }
+  return true;
+}
+
 /**
  * 周りの作物に合わせて、まく種を決める（畑の列をぐちゃぐちゃにしない）
  * @param {import("@minecraft/server").Dimension} dim
@@ -94,6 +147,11 @@ registerJob({
     { id: "plant", label: "空いている畑に倉庫の種をまく", default: true },
     { id: "food_seeds", label: "ニンジン・ジャガイモも倉庫から持ち出して植える", default: false },
   ],
+  skills: [
+    { id: "bumper", level: 5, name: "豊作", description: "ときどき収穫量が1つ増える（3回に1回くらい）" },
+    { id: "green", level: 8, name: "緑の手", description: "植えた作物・植え直した作物が、少し育った状態から始まる" },
+    { id: "sweep", level: 10, name: "一斉収穫", description: "畑の実った作物をまとめて一度に刈り取る" },
+  ],
 
   scan(dim, top, addTask, isClaimed) {
     // 実った作物 → 収穫
@@ -127,37 +185,19 @@ registerJob({
     addTask(first, blocks, { kind: "plant" });
   },
 
-  work({ e, task, carry, watched, opt, bag }) {
-    const p = takeBlock(task);
-    if (!p) return false;
-    const dim = e.dimension;
-    const b = safeBlock(dim, p);
-    if (!b) return false;
-
-    if (task.data.kind === "plant") {
-      if (!opt("plant") || !isEmptyFarmland(dim, p)) return false;
-      const seed = chooseSeed(dim, p, bag);
-      if (!seed) return false;
-      b.setType(SEED_TO_CROP[seed]);
-      bag[seed] -= 1;
-      if (watched) {
-        dim.playSound("use.grass", center(p));
-        lookAt(e, center(p));
+  work(ctx) {
+    const { e, task, watched } = ctx;
+    // 特技「一斉収穫」: この畑の実った作物をまとめて刈り取る
+    if (task.data.kind !== "plant" && ctx.skill("sweep")) {
+      let n = 0;
+      while (task.blocks.length > 0) n += harvestOne(ctx) ? 1 : 0;
+      if (watched && n > 0) {
+        e.dimension.playSound("dig.grass", e.location, { volume: 1.5, pitch: 0.8 });
+        ctx.wait(20);
       }
-      return true;
+      return n;
     }
-
-    if (!isMatureCrop(b)) return false;
-    const crop = CROPS[b.typeId];
-    // 収穫して、すぐに植え直す
-    b.setPermutation(b.permutation.withState("growth", 0));
-    addCarry(carry, crop.item, crop.min + Math.floor(Math.random() * (crop.max - crop.min + 1)));
-    if (crop.seed !== crop.item && Math.random() < 0.5) addCarry(carry, crop.seed, 1);
-    if (watched) {
-      dim.playSound("dig.grass", center(p));
-      lookAt(e, center(p));
-    }
-    return true;
+    return task.data.kind === "plant" ? plantOne(ctx) : harvestOne(ctx);
   },
 
   // 倉庫から種を持ち出す
