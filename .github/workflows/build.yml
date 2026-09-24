@@ -46,7 +46,7 @@ jobs:
           TAG="latest-$(echo "${GITHUB_REF_NAME}" | tr '/' '-')"
           VERSION="$(node -p "require('./package.json').version")"
           TITLE="blockAI v${VERSION} (${GITHUB_REF_NAME})"
-          NOTES="ブランチ ${GITHUB_REF_NAME} の最新ビルド v${VERSION} (${GITHUB_SHA::7})。iPhone/iPad では下の Assets にある blockAI-v${VERSION}.mcaddon をタップして「Minecraft で開く」。"
+          NOTES="ブランチ ${GITHUB_REF_NAME} の最新ビルド v${VERSION} (${GITHUB_SHA::7})。iPhone/iPad では下の Assets にある blockAI-v${VERSION}.mcaddon をタップして「Minecraft で開く」。テスト用は blockAI-test-v${VERSION}.zip（README の「テスト用の入れ方」）。"
           if gh release view "$TAG" >/dev/null 2>&1; then
             git push -f origin "HEAD:refs/tags/$TAG"
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
@@ -60,3 +60,4 @@ jobs:
               --target "$GITHUB_SHA" --prerelease --title "$TITLE" --notes "$NOTES"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx "blockAI-v${VERSION}.mcaddon"
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx "blockAI-test-v${VERSION}.zip"

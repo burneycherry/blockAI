@@ -1,6 +1,6 @@
 {
   "name": "blockai",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "private": true,
   "description": "Minecraft Bedrock add-on: AI villagers with jobs, you are the mayor",
   "type": "module",
