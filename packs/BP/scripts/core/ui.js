@@ -1,4 +1,4 @@
-import { system, world } from "@minecraft/server";
+import { ItemStack, system, world } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity, workInterval } from "./config.js";
 import { PLANNED_JOBS, allJobs, getJobDef, workingJobs } from "./registry.js";
@@ -84,11 +84,40 @@ export function itemName(id) {
   return ITEM_NAMES[/** @type {keyof typeof ITEM_NAMES} */ (id)] ?? id.replace("minecraft:", "");
 }
 
-/** @param {Record<string, number>} items */
+/**
+ * アイテム名（ゲームの翻訳を使うので、どのアイテムでもプレイヤーの言語で表示される）
+ * @param {string} id
+ * @returns {import("@minecraft/server").RawMessage}
+ */
+export function itemRaw(id) {
+  try {
+    return { translate: new ItemStack(id, 1).localizationKey };
+  } catch (err) {
+    return { text: itemName(id) };
+  }
+}
+
+/**
+ * 文字列と翻訳を並べて1つのメッセージにする
+ * @param {(string | import("@minecraft/server").RawMessage)[]} parts
+ * @returns {import("@minecraft/server").RawMessage}
+ */
+export function raw(...parts) {
+  return { rawtext: parts.map((p) => (typeof p === "string" ? { text: p } : p)) };
+}
+
+/**
+ * アイテムの一覧（1行に1種類）
+ * @param {Record<string, number>} items
+ * @returns {import("@minecraft/server").RawMessage}
+ */
 function itemList(items) {
   const keys = Object.keys(items).filter((k) => items[k] > 0);
-  if (keys.length === 0) return "  なし";
-  return keys.map((k) => `  ${itemName(k)} × ${items[k]}`).join("\n");
+  if (keys.length === 0) return { text: "  なし" };
+  /** @type {(string | import("@minecraft/server").RawMessage)[]} */
+  const parts = [];
+  keys.forEach((k, i) => parts.push(`${i > 0 ? "\n" : ""}  `, itemRaw(k), ` × ${items[k]}`));
+  return raw(...parts);
 }
 
 /**
@@ -290,14 +319,18 @@ export async function openVillagerMenu(player, v) {
     }),
     `状態: ${getStatus(v) || "-"}`,
     `持ち物 (${carryTotal(carry)} / ${carryCapacity(lv)}):`,
-    itemList(carry),
-    carryTotal(getBag(v)) > 0 ? `道具袋（倉庫から持ち出した材料）:\n${itemList(getBag(v))}` : "",
   ]
     .filter((l) => l !== "")
     .join("\n");
+  const bag = getBag(v);
+  const bodyMsg = raw(
+    body + "\n",
+    itemList(carry),
+    ...(carryTotal(bag) > 0 ? ["\n道具袋（倉庫から持ち出した材料）:\n", itemList(bag)] : []),
+  );
   const form = new ActionFormData()
     .title(getName(v))
-    .body(body)
+    .body(bodyMsg)
     .button("職業を変える")
     .button("名前を変える")
     .button("ここに呼ぶ")
@@ -614,7 +647,7 @@ async function showRecord(player) {
   if (!village) return;
   await new ActionFormData()
     .title("村の記録")
-    .body(`これまでに倉庫へ届いた物:\n${itemList(village.stats)}`)
+    .body(raw("これまでに倉庫へ届いた物:\n", itemList(village.stats)))
     .button("閉じる")
     .show(player);
 }

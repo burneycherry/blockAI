@@ -14,7 +14,7 @@ import {
   takeFromStock,
   usedSlots,
 } from "./storage.js";
-import { itemName } from "./ui.js";
+import { itemRaw, raw } from "./ui.js";
 
 /**
  * @typedef {import("@minecraft/server").Player} Player
@@ -120,7 +120,7 @@ async function takeOut(player) {
     return;
   }
   const form = new ActionFormData().title("取り出す").body("取り出す物を選んでください。");
-  for (const id of ids) form.button(`${itemName(id)}\n§8${fmt(stock[id])} 個`);
+  for (const id of ids) form.button(raw(itemRaw(id), `\n§8${fmt(stock[id])} 個`));
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
   const id = ids[res.selection];
@@ -129,7 +129,7 @@ async function takeOut(player) {
   const amounts = [1, 16, 32, 64, 128, 256, 576].filter((n) => n < have);
   const labels = [...amounts.map((n) => `${n} 個`), `全部（${fmt(have)} 個・持てるだけ）`];
   const r = await new ModalFormData()
-    .title(itemName(id))
+    .title(itemRaw(id))
     .dropdown("いくつ取り出す？", labels, { defaultValueIndex: Math.min(3, labels.length - 1) })
     .show(player);
   if (r.canceled || !r.formValues) return;
@@ -159,7 +159,7 @@ function give(player, id, want) {
   }
   if (left > 0) addToStock(v, id, left);
   const got = took - left;
-  player.sendMessage(got > 0 ? `§a[blockAI] ${itemName(id)} を ${fmt(got)} 個取り出しました。` : "§c[blockAI] 持ち物がいっぱいです。");
+  player.sendMessage(got > 0 ? raw("§a[blockAI] ", itemRaw(id), ` を ${fmt(got)} 個取り出しました。`) : "§c[blockAI] 持ち物がいっぱいです。");
 }
 
 /** @param {Player} player */
@@ -185,7 +185,7 @@ function putHand(player) {
     item.amount -= put;
     eq.setEquipment(EquipmentSlot.Mainhand, item);
   }
-  player.sendMessage(`§a[blockAI] ${itemName(item.typeId)} を ${fmt(put)} 個しまいました。`);
+  player.sendMessage(raw("§a[blockAI] ", itemRaw(item.typeId), ` を ${fmt(put)} 個しまいました。`));
 }
 
 /** @param {Player} player */

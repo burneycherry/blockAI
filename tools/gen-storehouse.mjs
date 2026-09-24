@@ -84,11 +84,23 @@ const iron = all(face(48, 0, 8, 8));
 const ironDark = all(face(56, 0, 8, 8));
 const box = (/** @type {number[]} */ origin, /** @type {number[]} */ size, /** @type {any} */ uv) => ({ origin, size, uv });
 
+/**
+ * 四角い縁取り（外周の帯だけ。真ん中は木が見える）
+ * @param {number} y
+ * @param {number} h
+ * @param {any} uv
+ */
+const frame = (y, h, uv) => [
+  box([-7.15, y, -7.15], [14.3, h, 1], uv),
+  box([-7.15, y, 6.15], [14.3, h, 1], uv),
+  box([-7.15, y, -6.15], [1, h, 12.3], uv),
+  box([6.15, y, -6.15], [1, h, 12.3], uv),
+];
 // 形は普通のチェストと同じ（14x14x14。本体10段＋ふた4段＋留め金）
 const lidCubes = [
   box([-7, 10, -7], [14, 4, 14], wood),
-  box([-7.15, 13.4, -7.15], [14.3, 0.7, 14.3], iron), // ふたの上の縁
-  box([-7.15, 10, -7.15], [14.3, 0.6, 14.3], ironDark), // ふたの下の縁
+  ...frame(13.4, 0.7, iron), // ふたの上の縁
+  ...frame(10, 0.6, ironDark), // ふたの下の縁
   box([-1, 7, -8], [2, 4, 1], ironDark), // 留め金
 ];
 writeJson("packs/RP/models/entity/storehouse.geo.json", {
@@ -111,8 +123,8 @@ writeJson("packs/RP/models/entity/storehouse.geo.json", {
           pivot: [0, 0, 0],
           cubes: [
             box([-7, 0, -7], [14, 10, 14], wood),
-            box([-7.15, 0, -7.15], [14.3, 0.7, 14.3], ironDark), // 下の縁
-            box([-7.15, 9.4, -7.15], [14.3, 0.6, 14.3], iron), // 上の縁
+            ...frame(0, 0.7, ironDark), // 下の縁
+            ...frame(9.4, 0.6, iron), // 上の縁
             // 角の鉄枠
             box([-7.25, 0, -7.25], [1, 10, 1], iron),
             box([6.25, 0, -7.25], [1, 10, 1], iron),

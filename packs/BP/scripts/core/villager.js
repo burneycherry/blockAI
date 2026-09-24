@@ -14,7 +14,7 @@ import {
 import { CHARACTERS } from "./characters.js";
 import { assignBed, bedUsable, isNight, markBed, releaseBed, unmarkBed } from "./beds.js";
 import { addStat, getVillage, workArea } from "./village.js";
-import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, tasks } from "./tasks.js";
+import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, scanNear, tasks } from "./tasks.js";
 import { canStand, dist2h, standPosNear } from "./blocks.js";
 import { depositInto, hasStorage, nearestStorePoint, sourceOf, standFor } from "./storage.js";
 import { getJobDef, skillLevel } from "./registry.js";
@@ -552,6 +552,8 @@ function step(e, st, village, tick) {
       if (!task || task.blocks.length === 0) {
         if (task) removeTask(task.id);
         releaseTask(st);
+        // 終わった場所の近くに次の仕事が無いか探す（隣の木から切る）
+        scanNear(village, job, e.dimension, e.location);
         decide(e, st, village, tick, job, total, cap);
         return;
       }

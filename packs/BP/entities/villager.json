@@ -645,15 +645,15 @@
                 "value": "player"
               }
             },
-            "deals_damage": "no"
+            "deals_damage": false
           },
           {
             "cause": "fall",
-            "deals_damage": "no"
+            "deals_damage": false
           },
           {
             "cause": "suffocation",
-            "deals_damage": "no"
+            "deals_damage": false
           }
         ]
       },

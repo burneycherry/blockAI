@@ -89,34 +89,77 @@ function* scanJob(village, regions) {
         const x = area.x + col.dx;
         const z = area.z + col.dz;
         if (++n % 24 === 0) yield;
-        // 立ち入り禁止エリアは調べない
-        if (isProtected(village, x, z)) continue;
-        try {
-          if (!dim.isChunkLoaded({ x, y: area.y, z })) continue;
-          let top = dim.getTopmostBlock({ x, z });
-          // 雪が積もっていたら、その下を見る
-          for (let i = 0; i < 2 && top && top.typeId === "minecraft:snow_layer"; i++) {
-            top = safeBlock(dim, { x, y: top.y - 1, z });
-          }
-          if (!top) continue;
-          for (const job of jobs) {
-            /** @type {import("./registry.js").AddTask} */
-            const add = (stand, blocks, data) => {
-              // 立ち入り禁止エリアにかかるブロックは除く
-              const ok = blocks.filter((b) => !isProtected(village, b.x, b.z));
-              addTask(job.id, dim, stand, ok, data ?? {});
-            };
-            job.scan?.(dim, top, add, (p) => claimed.has(key(p)));
-          }
-        } catch (e) {
-          // 読み込み中の場所などは無視
-        }
+        scanColumn(village, dim, jobs, x, z, area.y);
       }
     }
   } finally {
     scanning = false;
     // 何も見つからなければ30秒休む
     nextScanTick = system.currentTick + (tasks.size > before ? 40 : 600);
+  }
+}
+
+/**
+ * 1列を調べて、職業ごとの仕事を登録する
+ * @param {import("./village.js").VillageData} village
+ * @param {import("@minecraft/server").Dimension} dim
+ * @param {import("./registry.js").JobDef[]} jobs
+ * @param {number} x
+ * @param {number} z
+ * @param {number} y 読み込み確認に使う高さ
+ */
+function scanColumn(village, dim, jobs, x, z, y) {
+  // 立ち入り禁止エリアは調べない
+  if (isProtected(village, x, z)) return;
+  try {
+    if (!dim.isChunkLoaded({ x, y, z })) return;
+    let top = dim.getTopmostBlock({ x, z });
+    // 雪が積もっていたら、その下を見る
+    for (let i = 0; i < 2 && top && top.typeId === "minecraft:snow_layer"; i++) {
+      top = safeBlock(dim, { x, y: top.y - 1, z });
+    }
+    if (!top) return;
+    for (const job of jobs) {
+      /** @type {import("./registry.js").AddTask} */
+      const add = (stand, blocks, data) => {
+        // 立ち入り禁止エリアにかかるブロックは除く
+        const ok = blocks.filter((b) => !isProtected(village, b.x, b.z));
+        addTask(job.id, dim, stand, ok, data ?? {});
+      };
+      job.scan?.(dim, top, add, (p) => claimed.has(key(p)));
+    }
+  } catch (e) {
+    // 読み込み中の場所などは無視
+  }
+}
+
+/** 近くを探すときに、仕事の上限を超えて足してよい数 */
+const NEAR_EXTRA = 3;
+
+/**
+ * 村人のすぐ近くを調べて仕事を足す（1本切り終えたら、隣の木から切るように）
+ * @param {import("./village.js").VillageData} village
+ * @param {import("./registry.js").JobDef} job
+ * @param {import("@minecraft/server").Dimension} dim
+ * @param {Pos} from
+ * @param {number} [r]
+ */
+export function scanNear(village, job, dim, from, r = 8) {
+  if (!job.scan || dim.id !== village.dim) return;
+  const limit = (job.maxTasks ?? DEFAULT_MAX_TASKS) + NEAR_EXTRA;
+  const area = workArea(village, job.id);
+  const cx = Math.floor(from.x);
+  const cz = Math.floor(from.z);
+  const cols = [];
+  for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (dx * dx + dz * dz <= r * r) cols.push({ dx, dz, d: dx * dx + dz * dz });
+  cols.sort((a, b) => a.d - b.d);
+  for (const c of cols) {
+    if (countTasks(job.id) >= limit) return;
+    const x = cx + c.dx;
+    const z = cz + c.dz;
+    // 仕事場の外は探さない
+    if ((x - area.x) ** 2 + (z - area.z) ** 2 > area.r * area.r) continue;
+    scanColumn(village, dim, [job], x, z, Math.floor(from.y));
   }
 }
 

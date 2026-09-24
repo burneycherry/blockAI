@@ -164,7 +164,7 @@ out("packs/BP/entities/falling_tree.json", {
       // タップ・攻撃の当たり判定を地面の下へ逃がす（チェスト等の操作を邪魔しない）
       "minecraft:custom_hit_test": { hitboxes: [{ width: 0.01, height: 0.01, pivot: [0, -64, 0] }] },
       "minecraft:health": { value: 1, max: 1 },
-      "minecraft:damage_sensor": { triggers: [{ cause: "all", deals_damage: "no" }] },
+      "minecraft:damage_sensor": { triggers: [{ cause: "all", deals_damage: false }] },
       "minecraft:physics": { has_gravity: false, has_collision: false },
       "minecraft:pushable": { is_pushable: false, is_pushable_by_piston: false },
       "minecraft:knockback_resistance": { value: 1.0 },
