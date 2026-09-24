@@ -52,6 +52,11 @@ if (rp.header.version.join(".") !== ver) fail("BP と RP の version が違い�
 if (pkg.version !== ver) fail(`package.json の version (${pkg.version}) と manifest (${ver}) が違います`);
 const cfg = readFileSync("packs/BP/scripts/config.js", "utf8");
 if (!cfg.includes(`VERSION = "${ver}"`)) fail("config.js の VERSION が manifest と違います");
+// パック一覧で見分けられるよう、表示名にもバージョンを入れる
+for (const f of files.filter((f) => f.endsWith(".lang"))) {
+  const line = readFileSync(f, "utf8").split("\n").find((l) => l.startsWith("pack.name="));
+  if (line && !line.includes(`v${ver}`)) fail(`${f} の pack.name に v${ver} が入っていません`);
+}
 
 if (errors > 0) {
   console.error(`${errors} 件の問題があります`);
