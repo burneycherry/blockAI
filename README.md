@@ -109,13 +109,17 @@ npm run build   # dist/blockAI.mcaddon を作る
 - `packs/BP`：ビヘイビアパック（村人の定義とスクリプト）
   - `scripts/core/`：村・村人・仕事の管理、メニューなど全職業に共通の部分
   - `scripts/jobs/`：職業の部品（1職業＝1ファイル）。`jobs/index.js` で読み込む
-- `tools/gen-entities.mjs`：職業の枠（16個）ごとの村人・マーカーの定義を生成する
+- `tools/gen-entities.mjs`：職業の枠（16個）ごとの村人・マーカーの定義、体力の段階を生成する
+- `tools/gen-humans.mjs`・`tools/human-art.mjs`：村人20人×衣装の見た目（128x128のテクスチャ・モデル・アニメーション）を生成する
+- `tools/gen-storehouse.mjs`：村の倉庫の見た目を生成する／`tools/gen-tree.mjs`：倒木の演出を生成する
+- `tools/make-test.mjs`：テスト用zip（開発用フォルダに上書きする版）を作る
 
 ### 職業の追加方法
 
 1. `scripts/jobs/` に新しいファイルを作り、`registerJob({ ... })` で登録する（`lumberjack.js` が見本）
    - `scan`：村の周りを調べて仕事（対象ブロックと立ち位置）を登録する
    - `work`：仕事を1単位こなす（成功したら true）
+   - `skin`：衣装の番号（`tools/human-art.mjs` の `OUTFITS` に衣装を足す）、`reach`：作業を始められる距離
 2. `jobs/index.js` に `import` を1行足す
 - `packs/RP`：リソースパック（見た目と翻訳）
-- どのブランチでもpushすると、GitHub Actionsが `.mcaddon` を作って Releases の `latest-<ブランチ名>` に置きます。
+- どのブランチでもpushすると、GitHub Actionsが `.mcaddon`（配布用）と `blockAI-test-v<版>.zip`（テスト用）を作って Releases の `latest-<ブランチ名>` に置きます。
