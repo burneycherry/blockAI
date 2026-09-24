@@ -33,6 +33,7 @@ export const MAX_SLOTS = 16;
  *   description: string,
  *   status?: { going: string, working: string, waiting: string },
  *   maxTasks?: number,
+ *   reach?: number,
  *   scan?: (dim: Dimension, top: Block, addTask: AddTask, isClaimed: IsClaimed) => void,
  *   options?: { id: string, label: string, default: boolean }[],
  *   skills?: Skill[],

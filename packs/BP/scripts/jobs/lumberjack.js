@@ -74,7 +74,11 @@ registerJob({
   description: "村の周りの自然の木を切り、苗木を植え直して原木を倉庫へ運びます。建物の柱は切りません。",
   status: { going: "木を切りに向かっている", working: "伐採中", waiting: "切れる木を探している" },
   maxTasks: 6,
-  options: [{ id: "replant", label: "切った後に苗木を植え直す", default: true }],
+  reach: 4,
+  options: [
+    { id: "replant", label: "切った後に苗木を植え直す", default: true },
+    { id: "leaf_blocks", label: "葉っぱ払い（Lv5）のとき、葉っぱのブロックも持ち帰る", default: false },
+  ],
   skills: [
     { id: "leaves", level: 5, name: "葉っぱ払い", description: "木を切り終えると葉もきれいに片付け、リンゴ・棒・苗木を拾ってくる" },
     { id: "grow", level: 8, name: "植林名人", description: "植え直した苗木に骨粉をまいて、早く育つようにする" },
@@ -195,7 +199,7 @@ function fellTree(ctx) {
   // 原木と、その木の自然の葉を消す（倒れた木のモデルに置き換える）
   for (const p of logs) safeBlock(dim, p)?.setType("minecraft:air");
   const leaves = clearLeaves(dim, task.data.box ?? boxOf(logs));
-  if (ctx.skill("leaves")) leafDrops(carry, mainLog, leaves);
+  if (ctx.skill("leaves")) collectLeaves(ctx, mainLog, leaves);
   for (const id of Object.keys(counts)) addCarry(carry, id, counts[id]);
 
   if (watched) {
@@ -269,9 +273,9 @@ function afterTree(ctx, logType, leavesDone = false) {
   const { e, task, carry, watched } = ctx;
   const dim = e.dimension;
   if (!leavesDone && ctx.skill("leaves") && task.data.box) {
-    const n = clearLeaves(dim, task.data.box);
-    leafDrops(carry, logType, n);
-    if (watched && n > 0) dim.playSound("dig.grass", e.location);
+    const cleared = clearLeaves(dim, task.data.box);
+    collectLeaves(ctx, logType, cleared);
+    if (watched && cleared.n > 0) dim.playSound("dig.grass", e.location);
   }
   if (!ctx.opt("replant")) {
     // 開拓したいときは植え直さない（苗木は持ち帰る）
@@ -315,19 +319,33 @@ function boxOf(logs) {
  * @param {{minX:number,maxX:number,minY:number,maxY:number,minZ:number,maxZ:number}} box
  */
 function clearLeaves(dim, box) {
+  /** @type {Record<string, number>} 片付けた葉の種類と数 */
+  const kinds = {};
   let n = 0;
   for (let x = box.minX - 3; x <= box.maxX + 3; x++) {
     for (let z = box.minZ - 3; z <= box.maxZ + 3; z++) {
       for (let y = box.minY; y <= box.maxY + 3; y++) {
         const b = safeBlock(dim, { x, y, z });
         if (b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true) {
+          kinds[b.typeId] = (kinds[b.typeId] ?? 0) + 1;
           b.setType("minecraft:air");
           n++;
         }
       }
     }
   }
-  return n;
+  return { n, kinds };
+}
+
+/**
+ * 葉っぱ払いの収穫：リンゴ・棒・苗木。設定がONなら葉っぱのブロックそのものも持ち帰る
+ * @param {import("../core/registry.js").WorkContext} ctx
+ * @param {string} logType
+ * @param {{ n: number, kinds: Record<string, number> }} cleared
+ */
+function collectLeaves(ctx, logType, cleared) {
+  leafDrops(ctx.carry, logType, cleared.n);
+  if (ctx.opt("leaf_blocks")) for (const id of Object.keys(cleared.kinds)) addCarry(ctx.carry, id, cleared.kinds[id]);
 }
 
 /**

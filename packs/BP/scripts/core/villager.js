@@ -535,7 +535,8 @@ function step(e, st, village, tick) {
         decide(e, st, village, tick, job, total, cap);
         return;
       }
-      const near = nearestTask(job.id, e.dimension.id, e.location, ARRIVE_DISTANCE);
+      // 仕事を始められる距離（木こりは葉に阻まれて幹まで寄れないことがあるので長め）
+      const near = nearestTask(job.id, e.dimension.id, e.location, job.reach ?? ARRIVE_DISTANCE);
       if (near) {
         st.taskId = near.id;
         setMode(e, st, "working", tick);
@@ -723,6 +724,8 @@ const ASSIST_SPEED = 0.14;
 /** 手引き中の村人 → 目的地 */
 /** @type {Map<string, Pos>} */
 const assists = new Map();
+/** 手引きでも壁や葉に阻まれて進めなかった村人（すぐワープさせる） */
+const blocked = new Set();
 
 /**
  * 目的地へ向かう1ステップ。ワープすべきときは true
@@ -734,6 +737,10 @@ const assists = new Map();
  */
 function travel(e, st, tick, target, dest) {
   if (!isWatched(e)) return true;
+  if (blocked.delete(e.id)) {
+    stopAssist(e, st);
+    return true;
+  }
   if (!stuck(e, st, tick, target, st.assisted ? STUCK_SECONDS : ASSIST_AFTER)) return false;
   if (st.assisted) {
     stopAssist(e, st);
@@ -751,6 +758,7 @@ function travel(e, st, tick, target, dest) {
  */
 function stopAssist(e, st) {
   assists.delete(e.id);
+  blocked.delete(e.id);
   st.assisted = false;
 }
 
@@ -785,8 +793,9 @@ export function tickAssist() {
       }
     }
     if (ny === undefined) {
-      // 壁などで進めない。しばらくすると stuck でワープする
+      // 壁や葉で進めない。次の一歩でワープさせる
       assists.delete(id);
+      blocked.add(id);
       continue;
     }
     try {

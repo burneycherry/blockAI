@@ -16,6 +16,7 @@ import {
   usedSlots,
 } from "./storage.js";
 import { itemRaw, raw } from "./ui.js";
+import { itemIcon } from "./icons.js";
 
 /**
  * @typedef {import("@minecraft/server").Player} Player
@@ -94,7 +95,7 @@ async function storehouseMenu(player, house) {
   const chest = v.storage ? chestContainer(v, v.storage) : undefined;
   const body = [
     `中身: §e${usedSlots(stock)} / ${capacitySlots(v)} マス§r（${fmt(total)} 個）`,
-    `倉庫の数: ${getHouses(v).length} / ${maxHouses(v)} 個（村レベル${lv}）`,
+    `置いている倉庫: ${getHouses(v).length} 個（村レベル${lv}では ${maxHouses(v)} 個まで置けます）`,
     "§7中身はどの倉庫からでも同じです。村レベルが上がると広くなり、置ける数も増えます。1マス = 64個。§r",
   ].join("\n");
   const form = new ActionFormData()
@@ -135,7 +136,7 @@ async function takeOut(player) {
     return;
   }
   const form = new ActionFormData().title("取り出す").body("取り出す物を選んでください。");
-  for (const id of ids) form.button(raw(itemRaw(id), `\n§8${fmt(stock[id])} 個`));
+  for (const id of ids) form.button(raw(itemRaw(id), `\n§8${fmt(stock[id])} 個`), itemIcon(id));
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
   const id = ids[res.selection];

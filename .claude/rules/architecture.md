@@ -14,13 +14,14 @@
 - `core/beds.js`：夜の判定、ベッド探しと割り当て、ベッドの目印（`blockai_wp_home`）
 - `core/life.js`：倒れたときの記録と、翌朝の復活
 - `core/storage.js`：村の倉庫。専用の倉庫（`blockai:storehouse`、family に `blockai_wp_storage` を持つので村人はそれ自体を目指す）は複数置けて中身は共有（ワールドの `blockai:stock`）。容量はマス単位（種類ごとに64個で1マス）。倉庫が無いときだけ旧方式のチェスト。職業は `StoreSource`（count/take）で材料を持ち出す
+- `core/icons.js`：メニューに出すアイテムの絵（バニラのテクスチャの場所。取れるAPIが無いので村で扱う物だけ手で書く）
 - `core/storage-ui.js`：倉庫のメニュー（取り出す・しまう・片付ける・チェストから移す）と設置。見た目は `tools/gen-storehouse.mjs`（ふたは `blockai:open` で開く）
 - `jobs/lumberjack.js`（基本パック）、`jobs/farmer.js`（農業パック予定）、`jobs/index.js` で読み込む
 
 ## 村人の移動
 - 統合版には「指定位置へ歩け」のAPIが無い。そのため、見えないマーカー（`blockai:wp_task` / `blockai:wp_storage`）を置き、村人が `nearest_attackable_target` と `melee_attack` でそれを追いかけて、本物の経路探索で歩く
 - 職業ごとに枠（スロット、16個）があり、`blockai:mode_to_slot_N` で枠Nのマーカーだけを追う。定義は `tools/gen-entities.mjs` で生成する
-- 見られている間に4秒近づけなければ「手引き」（`tickAssist`：毎tick少しずつ teleport して地面沿いに歩かせる）に切り替え、それでも12秒近づけなければワープする。プレイヤーが40ブロック以内にいないときは、移動と作業を省略して一気に処理する
+- 見られている間に4秒近づけなければ「手引き」（`tickAssist`：毎tick少しずつ teleport して地面沿いに歩かせる）に切り替え、それでも12秒近づけなければワープする。手引きが壁や葉で進めなくなったら、待たずにすぐワープする。プレイヤーが40ブロック以内にいないときは、移動と作業を省略して一気に処理する
 - 追いかけ対象をリセットするため、倉庫マーカーは納品のたびに作り直す
 
 ## 見た目
