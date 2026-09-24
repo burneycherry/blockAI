@@ -35,7 +35,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blockAI-mcaddon
-          path: dist/blockAI.mcaddon
+          path: dist/
 
       # iPhone の Safari から直接ダウンロードできるように Release に置く
       # （Release が手で編集・作り直しされていても、ファイルを必ず置き直す）
@@ -50,9 +50,9 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             git push -f origin "HEAD:refs/tags/$TAG"
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
-            gh release upload "$TAG" dist/blockAI.mcaddon --clobber
+            gh release upload "$TAG" dist/blockAI.mcaddon dist/blockAI-manual.zip --clobber
           else
-            gh release create "$TAG" dist/blockAI.mcaddon \
+            gh release create "$TAG" dist/blockAI.mcaddon dist/blockAI-manual.zip \
               --target "$GITHUB_SHA" --prerelease --title "$TITLE" --notes "$NOTES"
           fi
           gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx 'blockAI.mcaddon'
