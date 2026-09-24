@@ -1,0 +1,163 @@
+{
+  "format_version": "1.8.0",
+  "render_controllers": {
+    "controller.render.blockai_tree_logs": {
+      "arrays": {
+        "textures": {
+          "Array.logs": [
+            "Texture.log_oak",
+            "Texture.log_spruce",
+            "Texture.log_birch",
+            "Texture.log_jungle",
+            "Texture.log_acacia",
+            "Texture.log_dark_oak",
+            "Texture.log_cherry",
+            "Texture.log_mangrove",
+            "Texture.log_pale_oak"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.logs[query.property('blockai:wood')]"
+      ],
+      "part_visibility": [
+        {
+          "leaves": false
+        },
+        {
+          "log_0": "query.property('blockai:height') > 0"
+        },
+        {
+          "log_1": "query.property('blockai:height') > 1"
+        },
+        {
+          "log_2": "query.property('blockai:height') > 2"
+        },
+        {
+          "log_3": "query.property('blockai:height') > 3"
+        },
+        {
+          "log_4": "query.property('blockai:height') > 4"
+        },
+        {
+          "log_5": "query.property('blockai:height') > 5"
+        },
+        {
+          "log_6": "query.property('blockai:height') > 6"
+        },
+        {
+          "log_7": "query.property('blockai:height') > 7"
+        },
+        {
+          "log_8": "query.property('blockai:height') > 8"
+        },
+        {
+          "log_9": "query.property('blockai:height') > 9"
+        },
+        {
+          "log_10": "query.property('blockai:height') > 10"
+        },
+        {
+          "log_11": "query.property('blockai:height') > 11"
+        },
+        {
+          "log_12": "query.property('blockai:height') > 12"
+        },
+        {
+          "log_13": "query.property('blockai:height') > 13"
+        },
+        {
+          "log_14": "query.property('blockai:height') > 14"
+        },
+        {
+          "log_15": "query.property('blockai:height') > 15"
+        }
+      ]
+    },
+    "controller.render.blockai_tree_leaves": {
+      "arrays": {
+        "textures": {
+          "Array.leaves": [
+            "Texture.leaves_oak",
+            "Texture.leaves_spruce",
+            "Texture.leaves_birch",
+            "Texture.leaves_jungle",
+            "Texture.leaves_acacia",
+            "Texture.leaves_dark_oak",
+            "Texture.leaves_cherry",
+            "Texture.leaves_mangrove",
+            "Texture.leaves_pale_oak"
+          ]
+        }
+      },
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Array.leaves[query.property('blockai:wood')]"
+      ],
+      "part_visibility": [
+        {
+          "leaves": true
+        },
+        {
+          "log_0": false
+        },
+        {
+          "log_1": false
+        },
+        {
+          "log_2": false
+        },
+        {
+          "log_3": false
+        },
+        {
+          "log_4": false
+        },
+        {
+          "log_5": false
+        },
+        {
+          "log_6": false
+        },
+        {
+          "log_7": false
+        },
+        {
+          "log_8": false
+        },
+        {
+          "log_9": false
+        },
+        {
+          "log_10": false
+        },
+        {
+          "log_11": false
+        },
+        {
+          "log_12": false
+        },
+        {
+          "log_13": false
+        },
+        {
+          "log_14": false
+        },
+        {
+          "log_15": false
+        }
+      ]
+    }
+  }
+}

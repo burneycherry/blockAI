@@ -127,7 +127,7 @@ registerJob({
     addTask(first, blocks, { kind: "plant" });
   },
 
-  work(e, task, carry, watched, opt, bag) {
+  work({ e, task, carry, watched, opt, bag }) {
     const p = takeBlock(task);
     if (!p) return false;
     const dim = e.dimension;

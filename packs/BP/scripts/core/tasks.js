@@ -14,6 +14,9 @@ export const tasks = new Map();
 const claimed = new Set();
 let nextTaskId = 1;
 
+/** 演出用エンティティ（倒木など）のID。これ以外の演出用エンティティは片付ける */
+export const activeProps = new Set();
+
 /** 倉庫マーカーのエンティティID */
 let storageWpId = /** @type {string | undefined} */ (undefined);
 
@@ -234,6 +237,16 @@ export function cleanupMarkers() {
   for (const t of tasks.values()) {
     if (t.wpId && world.getEntity(t.wpId)) continue;
     t.wpId = spawnMarker(t);
+  }
+  // 再起動などで残った演出用エンティティ（倒れた木など）を消す
+  for (const dimId of ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"]) {
+    try {
+      for (const e of world.getDimension(dimId).getEntities({ families: ["blockai_prop"] })) {
+        if (!activeProps.has(e.id)) e.remove();
+      }
+    } catch (e) {
+      // 無視
+    }
   }
 }
 

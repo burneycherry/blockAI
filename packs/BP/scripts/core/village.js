@@ -10,7 +10,8 @@ const KEY = "blockai:village";
  *   storage: Pos | null,
  *   mayor: string,
  *   founded: number,
- *   stats: Record<string, number>
+ *   stats: Record<string, number>,
+ *   testMode?: boolean
  * }} VillageData
  */
 
@@ -53,6 +54,7 @@ export function foundVillage(dim, center, mayor) {
     mayor,
     founded: old ? old.founded : Date.now(),
     stats: old ? old.stats : {},
+    testMode: old ? old.testMode : false,
   };
   saveVillage(data);
   return data;
@@ -81,4 +83,15 @@ export function addStat(itemId, amount) {
 /** @param {Pos} p */
 export function floorPos(p) {
   return { x: Math.floor(p.x), y: Math.floor(p.y), z: Math.floor(p.z) };
+}
+
+/**
+ * テストモード（特技をレベルに関係なく使える）
+ * @param {boolean} on
+ */
+export function setTestMode(on) {
+  const v = getVillage();
+  if (!v) return;
+  v.testMode = on;
+  saveVillage(v);
 }

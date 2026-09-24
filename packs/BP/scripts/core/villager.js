@@ -2,6 +2,7 @@ import { ItemStack, world } from "@minecraft/server";
 import {
   ARRIVE_DISTANCE,
   LEVEL_XP,
+  badgeTier,
   STUCK_SECONDS,
   VIEW_DISTANCE,
   VILLAGER_ID,
@@ -12,7 +13,7 @@ import {
 import { addStat, getVillage } from "./village.js";
 import { nearestTask, refreshStorageMarker, removeTask, tasks } from "./tasks.js";
 import { canStand, dist2h, safeBlock } from "./blocks.js";
-import { getJobDef } from "./registry.js";
+import { getJobDef, skillLevel } from "./registry.js";
 
 /**
  * @typedef {import("@minecraft/server").Entity} Entity
@@ -231,7 +232,7 @@ export function setName(e, name) {
 function applyLooks(e) {
   try {
     e.setProperty("blockai:job", getJob(e).skin);
-    e.setProperty("blockai:tier", Math.min(4, levelOf(getXp(e)) - 1));
+    e.setProperty("blockai:tier", badgeTier(levelOf(getXp(e))));
   } catch (err) {
     // 読み込み直後などは失敗することがある
   }
@@ -451,19 +452,34 @@ function step(e, st, village, tick) {
       // 見られていなければ、まとめて一気に作業する
       let units = watched ? 1 : cap - total;
       let got = 0;
-      /** @param {string} id */
-      const opt = (id) => getOption(e, job, id);
       const bag = getBag(e);
+      let delay = workInterval(level);
+      /** @type {import("./registry.js").WorkContext} */
+      const ctx = {
+        e,
+        task,
+        carry,
+        bag,
+        watched,
+        level,
+        opt: (id) => getOption(e, job, id),
+        skill: (id) => !!village.testMode || level >= skillLevel(job, id),
+        wait: (ticks) => {
+          delay = Math.max(delay, ticks);
+        },
+      };
       while (units > 0 && task.blocks.length > 0) {
-        if (job.work(e, task, carry, watched, opt, bag)) {
-          got++;
-          units--;
+        const r = job.work(ctx);
+        const n = r === true ? 1 : typeof r === "number" ? r : 0;
+        if (n > 0) {
+          got += n;
+          units -= n;
         }
       }
       setCarry(e, carry);
       setBag(e, bag);
       if (got > 0) gainXp(e, got);
-      st.nextWork = tick + workInterval(level);
+      st.nextWork = tick + delay;
       st.status = `${status.working} (${carryTotal(carry)}/${cap})`;
       return;
     }

@@ -1,0 +1,46 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockai:falling_tree",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "log_oak": "textures/blocks/log_oak",
+        "leaves_oak": "textures/blocks/leaves_oak_carried",
+        "log_spruce": "textures/blocks/log_spruce",
+        "leaves_spruce": "textures/blocks/leaves_spruce_carried",
+        "log_birch": "textures/blocks/log_birch",
+        "leaves_birch": "textures/blocks/leaves_birch_carried",
+        "log_jungle": "textures/blocks/log_jungle",
+        "leaves_jungle": "textures/blocks/leaves_jungle_carried",
+        "log_acacia": "textures/blocks/log_acacia",
+        "leaves_acacia": "textures/blocks/leaves_acacia_carried",
+        "log_dark_oak": "textures/blocks/log_big_oak",
+        "leaves_dark_oak": "textures/blocks/leaves_big_oak_carried",
+        "log_cherry": "textures/blocks/cherry_log_side",
+        "leaves_cherry": "textures/blocks/cherry_leaves",
+        "log_mangrove": "textures/blocks/mangrove_log_side",
+        "leaves_mangrove": "textures/blocks/mangrove_leaves_carried",
+        "log_pale_oak": "textures/blocks/pale_oak_log_side",
+        "leaves_pale_oak": "textures/blocks/pale_oak_leaves"
+      },
+      "geometry": {
+        "default": "geometry.blockai.falling_tree"
+      },
+      "animations": {
+        "fall": "animation.blockai.falling_tree.fall"
+      },
+      "scripts": {
+        "animate": [
+          "fall"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.blockai_tree_logs",
+        "controller.render.blockai_tree_leaves"
+      ]
+    }
+  }
+}

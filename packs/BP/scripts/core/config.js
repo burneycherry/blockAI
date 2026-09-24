@@ -1,7 +1,7 @@
 // 調整用の定数をまとめたファイル
 
 /** パックのバージョン（manifest.json と合わせる） */
-export const VERSION = "0.7.0";
+export const VERSION = "0.8.0";
 
 export const VILLAGER_ID = "blockai:villager";
 export const STAFF_ID = "blockai:mayor_staff";
@@ -21,17 +21,31 @@ export const STUCK_SECONDS = 12;
 /** 職業ごとに同時に用意しておく仕事の数（職業側で指定がないとき） */
 export const DEFAULT_MAX_TASKS = 6;
 
+/** 最大レベル */
+export const MAX_LEVEL = 10;
 /** レベルごとの必要経験値（index = レベル-1） */
-export const LEVEL_XP = [0, 30, 90, 200, 400];
+export const LEVEL_XP = [0, 30, 90, 200, 400, 700, 1100, 1600, 2300, 3200];
+/** レベルごとの作業間隔（tick。20tick = 1秒） */
+const WORK_TICKS = [20, 18, 16, 14, 12, 10, 9, 8, 7, 6];
+/** レベルごとの一度に運べる数（Lv10 で 256） */
+const CAPACITY = [32, 48, 64, 80, 96, 128, 160, 192, 224, 256];
 
-/** レベルに応じた作業間隔（tick） */
+/** @param {number} level */
+const lvIndex = (level) => Math.min(MAX_LEVEL, Math.max(1, level)) - 1;
+
+/** レベルに応じた作業間隔（tick） @param {number} level */
 export function workInterval(level) {
-  return Math.max(6, 22 - level * 3);
+  return WORK_TICKS[lvIndex(level)];
 }
 
-/** レベルに応じた持てる量 */
+/** レベルに応じた持てる量 @param {number} level */
 export function carryCapacity(level) {
-  return 16 + level * 8;
+  return CAPACITY[lvIndex(level)];
+}
+
+/** 頭の上のバッジ（石・鉄・金・エメラルド・ダイヤ）。2レベルごとに上がる @param {number} level */
+export function badgeTier(level) {
+  return Math.min(4, Math.floor((lvIndex(level)) / 2));
 }
 
 export const VILLAGER_NAMES = [

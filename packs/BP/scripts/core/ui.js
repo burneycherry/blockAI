@@ -2,7 +2,8 @@ import { system } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity, workInterval } from "./config.js";
 import { PLANNED_JOBS, allJobs, getJobDef } from "./registry.js";
-import { foundVillage, getVillage, setStorage } from "./village.js";
+import { MAX_LEVEL } from "./config.js";
+import { foundVillage, getVillage, setStorage, setTestMode } from "./village.js";
 import { clearAllTasks, ensureStorageMarker } from "./tasks.js";
 import {
   carryTotal,
@@ -105,7 +106,8 @@ export async function openMainMenu(player) {
     .button("倉庫を登録")
     .button("村の記録")
     .button("村の中心をここに移す")
-    .button("遊び方");
+    .button("遊び方")
+    .button(village.testMode ? "§6テスト設定（テストモード中）" : "テスト設定");
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
   switch (res.selection) {
@@ -123,6 +125,9 @@ export async function openMainMenu(player) {
       break;
     case 4:
       await moveCenter(player);
+      break;
+    case 6:
+      await testSettings(player);
       break;
     case 5:
       await showHelp(player);
@@ -184,9 +189,13 @@ export async function openVillagerMenu(player, v) {
   const body = [
     `名前: §e${getName(v)}§r`,
     `職業: ${job.name}`,
-    `レベル: ${lv}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})`,
+    `レベル: ${lv} / ${MAX_LEVEL}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})`,
     `  作業の速さ ${(workIntervalSec(lv)).toFixed(2)}秒/個・一度に ${carryCapacity(lv)}個 運べる`,
     others.length > 0 ? `ほかの職業の経験: ${others.join(" / ")}` : "",
+    ...(job.skills ?? []).map((sk) => {
+      const has = lv >= sk.level || !!getVillage()?.testMode;
+      return `${has ? "§a★" : "§8☆"} Lv${sk.level} ${sk.name}§r${has ? "" : "（未習得）"}\n  §7${sk.description}§r`;
+    }),
     `状態: ${getStatus(v) || "-"}`,
     `持ち物 (${carryTotal(carry)} / ${carryCapacity(lv)}):`,
     itemList(carry),
@@ -243,6 +252,23 @@ async function editOptions(player, v) {
   if (res.canceled || !res.formValues || !v.isValid) return;
   opts.forEach((o, i) => setOption(v, job, o.id, res.formValues?.[i] === true));
   player.sendMessage(`§a[blockAI] ${getName(v)} の作業設定を変えました。`);
+}
+
+/**
+ * テスト設定（特技をLv1から使えるようにする）
+ * @param {Player} player
+ */
+async function testSettings(player) {
+  const v = getVillage();
+  if (!v) return;
+  const res = await new ModalFormData()
+    .title("テスト設定")
+    .toggle("テストモード: 特技をレベルに関係なく全部使えるようにする", { defaultValue: !!v.testMode })
+    .show(player);
+  if (res.canceled || !res.formValues) return;
+  const on = res.formValues[0] === true;
+  setTestMode(on);
+  player.sendMessage(on ? "§6[blockAI] テストモードON: 全員が特技を使えます。" : "§a[blockAI] テストモードOFF: 特技はレベルに応じて覚えます。");
 }
 
 /** @param {number} lv */
@@ -383,7 +409,8 @@ async function showHelp(player) {
         "・農家: 実った小麦・ニンジン等を収穫して植え直す。空いている畑には倉庫の種をまく（新しく耕すことはしない）",
         "",
         "§e5. 成長§r",
-        "働くと経験値が貯まりレベルアップ。作業が速くなり、たくさん運べるようになります。",
+        "働くと経験値が貯まりレベルアップ（最大Lv10）。作業が速くなり、たくさん運べるようになります（Lv10で256個）。",
+        "Lv5・Lv8・Lv10 で職業ごとの特技を覚えます。木こりはLv10で「倒木」。",
         "経験値は職業ごとに記録されます。別の職業に変えても、元の職業に戻せば続きからです。",
         "",
         "§7※ プレイヤーから離れた村人は、移動や作業を省略して素早く仕事をします。",

@@ -1,11 +1,11 @@
 {
   "name": "blockai",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "Minecraft Bedrock add-on: AI villagers with jobs, you are the mayor",
   "type": "module",
   "scripts": {
-    "check": "tsc -p tsconfig.json && node tools/gen-entities.mjs --check && node tools/validate.mjs",
+    "check": "tsc -p tsconfig.json && node tools/gen-entities.mjs --check && node tools/gen-tree.mjs --check && node tools/validate.mjs",
     "build": "node tools/validate.mjs && sh tools/build.sh"
   },
   "devDependencies": {

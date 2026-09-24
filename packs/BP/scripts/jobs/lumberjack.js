@@ -1,7 +1,8 @@
 // 木こり（基本パック）: 村の周りの自然の木を切り、苗木を植え直す
+import { system } from "@minecraft/server";
 import { registerJob } from "../core/registry.js";
 import { addCarry, center, key, lookAt, safeBlock, standPosNear } from "../core/blocks.js";
-import { takeBlock } from "../core/tasks.js";
+import { activeProps, takeBlock } from "../core/tasks.js";
 
 const SOIL = new Set([
   "minecraft:dirt",
@@ -28,6 +29,19 @@ const SAPLINGS = {
   "minecraft:mangrove_log": "minecraft:mangrove_propagule",
   "minecraft:pale_oak_log": "minecraft:pale_oak_sapling",
 };
+
+/** 倒木モデルの木の種類（tools/gen-tree.mjs の WOODS と同じ順番） */
+const WOODS = [
+  "minecraft:oak_log",
+  "minecraft:spruce_log",
+  "minecraft:birch_log",
+  "minecraft:jungle_log",
+  "minecraft:acacia_log",
+  "minecraft:dark_oak_log",
+  "minecraft:cherry_log",
+  "minecraft:mangrove_log",
+  "minecraft:pale_oak_log",
+];
 
 /** @param {string} id */
 function isLog(id) {
@@ -61,6 +75,9 @@ registerJob({
   status: { going: "木を切りに向かっている", working: "伐採中", waiting: "切れる木を探している" },
   maxTasks: 6,
   options: [{ id: "replant", label: "切った後に苗木を植え直す", default: true }],
+  skills: [
+    { id: "felling", level: 10, name: "倒木", description: "木を根元から一気に切り倒す。木が倒れて消えると、原木がまとめて手に入る" },
+  ],
 
   scan(dim, top, addTask, isClaimed) {
     if (!isLeaves(top.typeId) && !isLog(top.typeId)) return;
@@ -127,7 +144,11 @@ registerJob({
     addTask(standPosNear(dim, base), logs, { bases });
   },
 
-  work(e, task, carry, watched, opt) {
+  work(ctx) {
+    const { e, task, carry, watched, opt } = ctx;
+    // 特技「倒木」: 木を丸ごと切り倒す
+    if (ctx.skill("felling")) return fellTree(ctx);
+
     const p = takeBlock(task);
     if (!p) return false;
     const dim = e.dimension;
@@ -140,14 +161,123 @@ registerJob({
       dim.playSound("dig.wood", center(p));
       lookAt(e, center(p));
     }
-    // 開拓したいときは植え直さない（苗木は持ち帰る）
-    if (task.blocks.length === 0) {
-      if (opt("replant")) replant(dim, task.data.bases ?? [], logType);
-      else if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], 1);
-    }
+    if (task.blocks.length === 0) afterTree(dim, task.data.bases ?? [], logType, carry, opt("replant"));
     return true;
   },
 });
+
+/**
+ * 木を1本丸ごと切り倒す（Lv10 の特技）
+ * 見えているときは、倒れるアニメーションを出してから消える
+ * @param {import("../core/registry.js").WorkContext} ctx
+ */
+function fellTree(ctx) {
+  const { e, task, carry, watched, opt } = ctx;
+  const dim = e.dimension;
+  /** @type {import("../core/registry.js").Pos[]} */
+  const logs = [];
+  /** @type {Record<string, number>} */
+  const counts = {};
+  for (let p = takeBlock(task); p; p = takeBlock(task)) {
+    const b = safeBlock(dim, p);
+    if (!b || !isLog(b.typeId)) continue;
+    counts[b.typeId] = (counts[b.typeId] ?? 0) + 1;
+    logs.push(p);
+  }
+  if (logs.length === 0) return 0;
+  const mainLog = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+  const minY = Math.min(...logs.map((p) => p.y));
+  const maxY = Math.max(...logs.map((p) => p.y));
+  const base = logs.find((p) => p.y === minY) ?? logs[0];
+
+  // 原木と、その木の自然の葉を消す（倒れた木のモデルに置き換える）
+  for (const p of logs) safeBlock(dim, p)?.setType("minecraft:air");
+  const minX = Math.min(...logs.map((p) => p.x)) - 2;
+  const maxX = Math.max(...logs.map((p) => p.x)) + 2;
+  const minZ = Math.min(...logs.map((p) => p.z)) - 2;
+  const maxZ = Math.max(...logs.map((p) => p.z)) + 2;
+  for (let x = minX; x <= maxX; x++) {
+    for (let z = minZ; z <= maxZ; z++) {
+      for (let y = minY; y <= maxY + 3; y++) {
+        const b = safeBlock(dim, { x, y, z });
+        if (b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true) b.setType("minecraft:air");
+      }
+    }
+  }
+  for (const id of Object.keys(counts)) addCarry(carry, id, counts[id]);
+
+  if (watched) {
+    showFallingTree(e, base, maxY - minY + 1, mainLog);
+    lookAt(e, center(base));
+    // 木が倒れて消えるまで見届ける
+    ctx.wait(70);
+  }
+  afterTree(dim, task.data.bases ?? [], mainLog, carry, opt("replant"));
+  return logs.length;
+}
+
+/**
+ * 倒れる木のモデルを出して、しばらくしたら消す
+ * @param {import("@minecraft/server").Entity} e 木こり
+ * @param {import("../core/registry.js").Pos} base
+ * @param {number} height
+ * @param {string} logType
+ */
+function showFallingTree(e, base, height, logType) {
+  const dim = e.dimension;
+  const at = { x: base.x + 0.5, y: base.y, z: base.z + 0.5 };
+  try {
+    const tree = dim.spawnEntity("blockai:falling_tree", at);
+    activeProps.add(tree.id);
+    tree.setProperty("blockai:height", Math.max(1, Math.min(16, height)));
+    tree.setProperty("blockai:wood", Math.max(0, WOODS.indexOf(logType)));
+    // 木こりと反対側へ倒れるように向ける
+    const dx = at.x - e.location.x;
+    const dz = at.z - e.location.z;
+    const yaw = (Math.atan2(-dx, dz) * 180) / Math.PI;
+    tree.teleport(at, { rotation: { x: 0, y: yaw } });
+    dim.playSound("dig.wood", at, { volume: 1.2, pitch: 0.7 });
+    // 地面に倒れた音
+    system.runTimeout(() => {
+      try {
+        dim.playSound("step.wood", at, { volume: 1.5, pitch: 0.5 });
+        dim.playSound("dig.wood", at, { volume: 1.0, pitch: 0.5 });
+      } catch (err) {
+        // 無視
+      }
+    }, 24);
+    // 少し置いてから消える
+    system.runTimeout(() => {
+      activeProps.delete(tree.id);
+      try {
+        if (!tree.isValid) return;
+        const l = tree.location;
+        for (let i = 0; i < Math.min(height, 8); i++) {
+          dim.spawnParticle("minecraft:villager_happy", { x: l.x, y: l.y + 0.5, z: l.z });
+        }
+        tree.remove();
+      } catch (err) {
+        // 無視
+      }
+    }, 60);
+  } catch (err) {
+    // モデルが出せなくても、原木は手に入る
+  }
+}
+
+/**
+ * 切り終わった後: 植え直すか、苗木を持ち帰る
+ * @param {import("@minecraft/server").Dimension} dim
+ * @param {import("../core/registry.js").Pos[]} bases
+ * @param {string} logType
+ * @param {Record<string, number>} carry
+ * @param {boolean} doReplant
+ */
+function afterTree(dim, bases, logType, carry, doReplant) {
+  if (doReplant) replant(dim, bases, logType);
+  // 開拓したいときは植え直さない（苗木は持ち帰る）
+  else if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], 1);
+}
 
 /**
  * 切り終わった木の根元に苗木を植える

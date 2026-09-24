@@ -35,17 +35,34 @@ export const MAX_SLOTS = 16;
  *   maxTasks?: number,
  *   scan?: (dim: Dimension, top: Block, addTask: AddTask, isClaimed: IsClaimed) => void,
  *   options?: { id: string, label: string, default: boolean }[],
- *   work?: (e: Entity, task: Task, carry: Record<string, number>, watched: boolean, opt: (id: string) => boolean, bag: Record<string, number>) => boolean,
+ *   skills?: Skill[],
+ *   work?: (ctx: WorkContext) => number | boolean,
  *   onStorage?: (e: Entity, container: import("@minecraft/server").Container, bag: Record<string, number>, opt: (id: string) => boolean) => void,
  *   needsSupply?: (e: Entity, bag: Record<string, number>, opt: (id: string) => boolean) => boolean,
  *   slot?: number
  * }} JobDef
  *
+ * @typedef {{ id: string, level: number, name: string, description: string }} Skill
+ *
+ * @typedef {{
+ *   e: Entity,
+ *   task: Task,
+ *   carry: Record<string, number>,
+ *   bag: Record<string, number>,
+ *   watched: boolean,
+ *   level: number,
+ *   opt: (id: string) => boolean,
+ *   skill: (id: string) => boolean,
+ *   wait: (ticks: number) => void
+ * }} WorkContext
+ *
  * status  頭の上に出す状態（向かっている / 作業中 / 仕事待ち）
  * scan    村の周りの1列（一番上のブロック）を見て、仕事があれば addTask で登録する
  * options 村人ごとに切り替えられる作業の設定（例: 苗木を植え直す）
- * work    仕事を1単位こなす。成功したら true（経験値が入る）。opt(id) で設定を読む
- *         bag は倉庫から持ち出した道具・材料（種など）。倉庫には戻さない
+ * skills  レベルで覚える特技（Lv5・8・10 を想定）
+ * work    仕事を1単位こなす。こなした数（または true=1）を返す。数だけ経験値が入る
+ *         ctx.opt(id) で作業設定、ctx.skill(id) で特技を覚えているか、ctx.wait(tick) で次の作業を遅らせる
+ *         ctx.bag は倉庫から持ち出した道具・材料（種など）。倉庫には戻さない
  * onStorage 倉庫に荷物を入れた後に呼ばれる。倉庫から材料を bag に持ち出せる
  * needsSupply 材料が足りず、倉庫へ取りに行きたいときに true
  */
@@ -82,6 +99,15 @@ export function workingJobs() {
 
 export function allJobs() {
   return [...jobs.values()];
+}
+
+/**
+ * 特技を覚えるレベル
+ * @param {JobDef} job
+ * @param {string} skillId
+ */
+export function skillLevel(job, skillId) {
+  return job.skills?.find((s) => s.id === skillId)?.level ?? Infinity;
 }
 
 /**
