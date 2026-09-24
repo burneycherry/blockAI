@@ -59,6 +59,10 @@ const ver = bp.header.version.join(".");
 if (rp.header.version.join(".") !== ver) fail("BP と RP の version が違います");
 if (pkg.version !== ver) fail(`package.json の version (${pkg.version}) と manifest (${ver}) が違います`);
 const cfg = readFileSync("packs/BP/scripts/config.js", "utf8");
+// 取り込み先のフォルダ名は manifest の name で決まる。版ごとに変えて、古いキャッシュと混ざらないようにする
+for (const m of [bp, rp]) {
+  if (!m.header.name.includes(`v${ver}`)) fail(`manifest の name (${m.header.name}) に v${ver} が入っていません`);
+}
 if (!cfg.includes(`VERSION = "${ver}"`)) fail("config.js の VERSION が manifest と違います");
 // パック一覧で見分けられるよう、表示名にもバージョンを入れる
 for (const f of files.filter((f) => f.endsWith(".lang"))) {
