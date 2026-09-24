@@ -62,8 +62,8 @@
       "scripts": {
         "scale": "0.9375",
         "pre_animation": [
-          "variable.profession_index = query.property('blockai:job');",
-          "variable.level_index = query.property('blockai:tier');",
+          "variable.profession_index = query.has_property('blockai:job') ? query.property('blockai:job') : 0;",
+          "variable.level_index = query.has_property('blockai:tier') ? query.property('blockai:tier') : 0;",
           "variable.raise_arms = 0.0;"
         ]
       },
