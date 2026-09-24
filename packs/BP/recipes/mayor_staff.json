@@ -1,0 +1,22 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "blockai:mayor_staff"
+    },
+    "tags": ["crafting_table"],
+    "pattern": [
+      "E",
+      "S",
+      "S"
+    ],
+    "key": {
+      "E": { "item": "minecraft:emerald" },
+      "S": { "item": "minecraft:stick" }
+    },
+    "unlock": [
+      { "item": "minecraft:emerald" }
+    ],
+    "result": { "item": "blockai:mayor_staff" }
+  }
+}

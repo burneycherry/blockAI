@@ -1,0 +1,12 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "blockai:wp_storage",
+      "materials": { "default": "entity_alphatest" },
+      "textures": { "default": "textures/misc/missing_texture" },
+      "geometry": { "default": "geometry.humanoid" },
+      "render_controllers": []
+    }
+  }
+}

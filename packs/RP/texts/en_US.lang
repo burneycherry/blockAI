@@ -1,0 +1,8 @@
+pack.name=blockAI Village (Resources)
+pack.description=Give jobs to AI villagers and grow your village
+entity.blockai:villager.name=AI Villager
+item.spawn_egg.entity.blockai:villager.name=Spawn AI Villager
+entity.blockai:wp_tree.name=Work Point
+entity.blockai:wp_crop.name=Work Point
+entity.blockai:wp_storage.name=Work Point
+item.blockai:mayor_staff.name=Mayor's Staff
