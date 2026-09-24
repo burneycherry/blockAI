@@ -34,13 +34,15 @@ export const MAX_SLOTS = 16;
  *   status?: { going: string, working: string, waiting: string },
  *   maxTasks?: number,
  *   scan?: (dim: Dimension, top: Block, addTask: AddTask, isClaimed: IsClaimed) => void,
- *   work?: (e: Entity, task: Task, carry: Record<string, number>, watched: boolean) => boolean,
+ *   options?: { id: string, label: string, default: boolean }[],
+ *   work?: (e: Entity, task: Task, carry: Record<string, number>, watched: boolean, opt: (id: string) => boolean) => boolean,
  *   slot?: number
  * }} JobDef
  *
  * status  頭の上に出す状態（向かっている / 作業中 / 仕事待ち）
  * scan    村の周りの1列（一番上のブロック）を見て、仕事があれば addTask で登録する
- * work    仕事を1単位こなす。成功したら true（経験値が入る）
+ * options 村人ごとに切り替えられる作業の設定（例: 苗木を植え直す）
+ * work    仕事を1単位こなす。成功したら true（経験値が入る）。opt(id) で設定を読む
  */
 
 /** @type {Map<string, JobDef>} */

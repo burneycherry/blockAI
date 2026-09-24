@@ -60,6 +60,7 @@ registerJob({
   description: "村の周りの自然の木を切り、苗木を植え直して原木を倉庫へ運びます。建物の柱は切りません。",
   status: { going: "木を切りに向かっている", working: "伐採中", waiting: "切れる木を探している" },
   maxTasks: 6,
+  options: [{ id: "replant", label: "切った後に苗木を植え直す", default: true }],
 
   scan(dim, top, addTask, isClaimed) {
     if (!isLeaves(top.typeId) && !isLog(top.typeId)) return;
@@ -126,7 +127,7 @@ registerJob({
     addTask(standPosNear(dim, base), logs, { bases });
   },
 
-  work(e, task, carry, watched) {
+  work(e, task, carry, watched, opt) {
     const p = takeBlock(task);
     if (!p) return false;
     const dim = e.dimension;
@@ -139,7 +140,11 @@ registerJob({
       dim.playSound("dig.wood", center(p));
       lookAt(e, center(p));
     }
-    if (task.blocks.length === 0) replant(dim, task.data.bases ?? [], logType);
+    // 開拓したいときは植え直さない（苗木は持ち帰る）
+    if (task.blocks.length === 0) {
+      if (opt("replant")) replant(dim, task.data.bases ?? [], logType);
+      else if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], 1);
+    }
     return true;
   },
 });

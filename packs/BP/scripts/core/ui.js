@@ -1,7 +1,7 @@
 import { system } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity } from "./config.js";
-import { PLANNED_JOBS, allJobs } from "./registry.js";
+import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity, workInterval } from "./config.js";
+import { PLANNED_JOBS, allJobs, getJobDef } from "./registry.js";
 import { foundVillage, getVillage, setStorage } from "./village.js";
 import { clearAllTasks, ensureStorageMarker } from "./tasks.js";
 import {
@@ -11,7 +11,10 @@ import {
   getJob,
   getName,
   getStatus,
+  getOption,
   getXp,
+  jobHistory,
+  setOption,
   initVillager,
   levelOf,
   setJob,
@@ -173,24 +176,36 @@ export async function openVillagerMenu(player, v) {
   const lv = levelOf(xp);
   const next = LEVEL_XP[lv];
   const carry = getCarry(v);
+  const job = getJob(v);
+  const others = jobHistory(v)
+    .filter((h) => h.jobId !== job.id)
+    .map((h) => `${getJobDef(h.jobId).name} Lv${levelOf(h.xp)}`);
   const body = [
     `名前: §e${getName(v)}§r`,
-    `職業: ${getJob(v).name}`,
+    `職業: ${job.name}`,
     `レベル: ${lv}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})`,
+    `  作業の速さ ${(workIntervalSec(lv)).toFixed(2)}秒/個・一度に ${carryCapacity(lv)}個 運べる`,
+    others.length > 0 ? `ほかの職業の経験: ${others.join(" / ")}` : "",
     `状態: ${getStatus(v) || "-"}`,
     `持ち物 (${carryTotal(carry)} / ${carryCapacity(lv)}):`,
     itemList(carry),
-  ].join("\n");
-  const res = await new ActionFormData()
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+  const form = new ActionFormData()
     .title(getName(v))
     .body(body)
     .button("職業を変える")
     .button("名前を変える")
     .button("ここに呼ぶ")
-    .button("解雇する")
-    .show(player);
+    .button("解雇する");
+  if (job.options && job.options.length > 0) form.button(`${job.name}の作業設定`);
+  const res = await form.show(player);
   if (res.canceled || res.selection === undefined || !v.isValid) return;
   switch (res.selection) {
+    case 4:
+      await editOptions(player, v);
+      break;
     case 0:
       await chooseJob(player, v);
       break;
@@ -213,6 +228,27 @@ export async function openVillagerMenu(player, v) {
 }
 
 /**
+ * 職業ごとの作業設定（例: 木こりの植え直し）
+ * @param {Player} player
+ * @param {Entity} v
+ */
+async function editOptions(player, v) {
+  const job = getJob(v);
+  const opts = job.options ?? [];
+  const form = new ModalFormData().title(`${job.name}の作業設定`);
+  for (const o of opts) form.toggle(o.label, { defaultValue: getOption(v, job, o.id) });
+  const res = await form.show(player);
+  if (res.canceled || !res.formValues || !v.isValid) return;
+  opts.forEach((o, i) => setOption(v, job, o.id, res.formValues?.[i] === true));
+  player.sendMessage(`§a[blockAI] ${getName(v)} の作業設定を変えました。`);
+}
+
+/** @param {number} lv */
+function workIntervalSec(lv) {
+  return workInterval(lv) / 20;
+}
+
+/**
  * @param {Player} player
  * @param {Entity} v
  */
@@ -221,7 +257,8 @@ async function chooseJob(player, v) {
   const form = new ActionFormData().title("職業を選ぶ").body(`${getName(v)} の新しい職業は？`);
   for (const j of jobs) {
     const tag = j.pack === "基本" ? "" : ` §2[${j.pack}]`;
-    form.button(`${j.name}${tag}`);
+    const xp = getXp(v, j.id);
+    form.button(`${j.name}${xp > 0 ? ` Lv${levelOf(xp)}` : ""}${tag}`);
   }
   // 今後の職業パックの紹介
   for (const p of PLANNED_JOBS) form.button(`§8${p.name}（${p.pack}・近日公開）`);
@@ -236,7 +273,8 @@ async function chooseJob(player, v) {
     return;
   }
   setJob(v, job.id);
-  player.sendMessage(`§a[blockAI] ${getName(v)} は ${job.name} になりました。§7${job.description}`);
+  const lv = levelOf(getXp(v, job.id));
+  player.sendMessage(`§a[blockAI] ${getName(v)} は ${job.name} Lv${lv} になりました。§7${job.description}`);
   if (job.work && !getVillage()?.storage) {
     player.sendMessage("§e[blockAI] ヒント: 倉庫を登録すると、集めた物をチェストに運んでくれます。");
   }
@@ -339,11 +377,12 @@ async function showHelp(player) {
         "",
         "§e4. 仕事を与える§r",
         "村長の杖で村人をタップ →「職業を変える」。",
-        "・木こり: 村の周りの木を切って、苗木を植え直す",
+        "・木こり: 村の周りの木を切って、苗木を植え直す（作業設定で植え直しをOFFにもできる）",
         "・農家: 実った小麦・ニンジン等を収穫して植え直す",
         "",
         "§e5. 成長§r",
         "働くと経験値が貯まりレベルアップ。作業が速くなり、たくさん運べるようになります。",
+        "経験値は職業ごとに記録されます。別の職業に変えても、元の職業に戻せば続きからです。",
         "",
         "§7※ プレイヤーから離れた村人は、移動や作業を省略して素早く仕事をします。",
       ].join("\n"),

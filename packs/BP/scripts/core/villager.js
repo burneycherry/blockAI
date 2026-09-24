@@ -52,10 +52,69 @@ export function getJob(e) {
   return getJobDef(typeof j === "string" ? j : "none");
 }
 
-/** @param {Entity} e */
-export function getXp(e) {
-  const x = e.getDynamicProperty("blockai:xp");
+/**
+ * 職業ごとの経験値（職業を変えても、元の職業に戻れば続きから）
+ * @param {Entity} e
+ * @param {string} [jobId] 省略時は今の職業
+ */
+export function getXp(e, jobId) {
+  const id = jobId ?? getJob(e).id;
+  migrateXp(e);
+  const x = e.getDynamicProperty(`blockai:xp:${id}`);
   return typeof x === "number" ? x : 0;
+}
+
+/**
+ * v0.5 までの共通の経験値を、今の職業の経験値に移す
+ * @param {Entity} e
+ */
+function migrateXp(e) {
+  const old = e.getDynamicProperty("blockai:xp");
+  if (typeof old !== "number") return;
+  const j = e.getDynamicProperty("blockai:job");
+  const id = typeof j === "string" ? j : "none";
+  if (old > 0 && typeof e.getDynamicProperty(`blockai:xp:${id}`) !== "number") {
+    e.setDynamicProperty(`blockai:xp:${id}`, old);
+  }
+  e.setDynamicProperty("blockai:xp", undefined);
+}
+
+/**
+ * 経験値のある職業の一覧
+ * @param {Entity} e
+ * @returns {{ jobId: string, xp: number }[]}
+ */
+export function jobHistory(e) {
+  migrateXp(e);
+  const list = [];
+  for (const id of e.getDynamicPropertyIds()) {
+    if (!id.startsWith("blockai:xp:")) continue;
+    const xp = e.getDynamicProperty(id);
+    if (typeof xp === "number" && xp > 0) list.push({ jobId: id.slice("blockai:xp:".length), xp });
+  }
+  return list;
+}
+
+/**
+ * 作業の設定（職業ごと）
+ * @param {Entity} e
+ * @param {import("./registry.js").JobDef} job
+ * @param {string} optId
+ */
+export function getOption(e, job, optId) {
+  const v = e.getDynamicProperty(`blockai:opt:${job.id}:${optId}`);
+  if (typeof v === "boolean") return v;
+  return job.options?.find((o) => o.id === optId)?.default ?? false;
+}
+
+/**
+ * @param {Entity} e
+ * @param {import("./registry.js").JobDef} job
+ * @param {string} optId
+ * @param {boolean} value
+ */
+export function setOption(e, job, optId, value) {
+  e.setDynamicProperty(`blockai:opt:${job.id}:${optId}`, value);
 }
 
 /** @param {number} xp */
@@ -113,7 +172,6 @@ export function initVillager(e) {
   const pool = free.length > 0 ? free : VILLAGER_NAMES;
   e.setDynamicProperty("blockai:name", pool[Math.floor(Math.random() * pool.length)]);
   e.setDynamicProperty("blockai:job", "none");
-  e.setDynamicProperty("blockai:xp", 0);
   applyLooks(e);
   updateNameTag(e, "");
 }
@@ -360,8 +418,10 @@ function step(e, st, village, tick) {
       // 見られていなければ、まとめて一気に作業する
       let units = watched ? 1 : cap - total;
       let got = 0;
+      /** @param {string} id */
+      const opt = (id) => getOption(e, job, id);
       while (units > 0 && task.blocks.length > 0) {
-        if (job.work(e, task, carry, watched)) {
+        if (job.work(e, task, carry, watched, opt)) {
           got++;
           units--;
         }
@@ -493,9 +553,10 @@ function stuck(e, st, tick) {
  * @param {number} amount
  */
 function gainXp(e, amount) {
-  const before = levelOf(getXp(e));
-  const xp = getXp(e) + amount;
-  e.setDynamicProperty("blockai:xp", xp);
+  const jobId = getJob(e).id;
+  const before = levelOf(getXp(e, jobId));
+  const xp = getXp(e, jobId) + amount;
+  e.setDynamicProperty(`blockai:xp:${jobId}`, xp);
   const after = levelOf(xp);
   if (after > before) {
     applyLooks(e);
