@@ -14,7 +14,8 @@ const KEY = "blockai:village";
  *   testMode?: boolean,
  *   keepLoaded?: boolean,
  *   jobAreas?: Record<string, Area>,
- *   protect?: (Area & { name: string })[]
+ *   protect?: (Area & { name: string })[],
+ *   revive?: boolean
  * }} VillageData
  *
  * @typedef {{ x: number, y: number, z: number, r: number }} Area
@@ -63,6 +64,7 @@ export function foundVillage(dim, center, mayor) {
     keepLoaded: old ? old.keepLoaded : true,
     jobAreas: old ? old.jobAreas : {},
     protect: old ? old.protect : [],
+    revive: old ? old.revive : true,
   };
   saveVillage(data);
   return data;
@@ -205,5 +207,21 @@ export function setKeepLoaded(on) {
   const v = getVillage();
   if (!v) return;
   v.keepLoaded = on;
+  saveVillage(v);
+}
+
+/**
+ * 村人が倒れたとき、翌朝に戻ってくるか（false なら死んだら終わり）
+ * @param {VillageData | null} v
+ */
+export function reviveOn(v) {
+  return v?.revive !== false;
+}
+
+/** @param {boolean} on */
+export function setRevive(on) {
+  const v = getVillage();
+  if (!v) return;
+  v.revive = on;
   saveVillage(v);
 }

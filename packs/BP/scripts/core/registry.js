@@ -28,7 +28,7 @@ export const MAX_SLOTS = 16;
  * @typedef {{
  *   id: string,
  *   name: string,
- *   skin: number,
+ *   skin: number,  // 衣装の番号（tools/gen-humans.mjs の OUTFITS の並び。0 = 普段着）
  *   pack: string,
  *   description: string,
  *   status?: { going: string, working: string, waiting: string },

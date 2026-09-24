@@ -10,7 +10,9 @@ import {
   getVillage,
   removeProtect,
   setJobArea,
+  reviveOn,
   setKeepLoaded,
+  setRevive,
   setStorage,
   setTestMode,
   villageLevel,
@@ -23,6 +25,8 @@ import {
   getAllVillagers,
   getBag,
   getCarry,
+  getCharacter,
+  getHp,
   getJob,
   getName,
   getStatus,
@@ -32,9 +36,12 @@ import {
   setOption,
   initVillager,
   levelOf,
+  setCharacter,
   setJob,
   setName,
 } from "./villager.js";
+import { BUILD_NAMES, CHARACTERS } from "./characters.js";
+import { fallenCount, fallenNames, forget } from "./life.js";
 
 /**
  * @typedef {import("@minecraft/server").Player} Player
@@ -115,9 +122,10 @@ export async function openMainMenu(player) {
   }
   const jobText = Object.keys(jobCount).map((k) => `${k}:${jobCount[k]}`).join(" / ") || "なし";
   const s = village.storage;
+  const fallen = fallenNames();
   const body = [
     `村長: §e${village.mayor}§r`,
-    `村人: ${villagers.length} / ${MAX_VILLAGERS} 人`,
+    `村人: ${villagers.length} / ${MAX_VILLAGERS} 人${fallen.length > 0 ? `（休養中: ${fallen.join("、")}）` : ""}`,
     `  ${jobText}`,
     (() => {
       const vl = villageLevel(village);
@@ -172,7 +180,7 @@ export async function openMainMenu(player) {
 
 /** @param {Player} player */
 function hireVillager(player) {
-  const count = getAllVillagers().length;
+  const count = getAllVillagers().length + fallenCount();
   if (count >= MAX_VILLAGERS) {
     player.sendMessage(`§c[blockAI] 村人は最大 ${MAX_VILLAGERS} 人までです。`);
     return;
@@ -221,9 +229,12 @@ export async function openVillagerMenu(player, v) {
   const others = jobHistory(v)
     .filter((h) => h.jobId !== job.id)
     .map((h) => `${getJobDef(h.jobId).name} Lv${levelOf(h.xp)}`);
+  const hp = getHp(v);
+  const ch = CHARACTERS[getCharacter(v)];
   const body = [
-    `名前: §e${getName(v)}§r`,
+    `名前: §e${getName(v)}§r  §7(${ch.gender === "m" ? "男性" : "女性"}・${BUILD_NAMES[ch.build]})§r`,
     `職業: ${job.name}`,
+    `体力: §c${hp.cur} / ${hp.max}§r  §7(一番高い職業レベルで増える)§r`,
     `レベル: ${lv} / ${MAX_LEVEL}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})`,
     `  作業の速さ ${(workIntervalSec(lv)).toFixed(2)}秒/個・一度に ${carryCapacity(lv)}個 運べる`,
     others.length > 0 ? `ほかの職業の経験: ${others.join(" / ")}` : "",
@@ -244,12 +255,16 @@ export async function openVillagerMenu(player, v) {
     .button("職業を変える")
     .button("名前を変える")
     .button("ここに呼ぶ")
-    .button("解雇する");
+    .button("解雇する")
+    .button("見た目を選ぶ");
   if (job.options && job.options.length > 0) form.button(`${job.name}の作業設定`);
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined || !v.isValid) return;
   switch (res.selection) {
     case 4:
+      await chooseLooks(player, v);
+      break;
+    case 5:
       await editOptions(player, v);
       break;
     case 0:
@@ -271,6 +286,26 @@ export async function openVillagerMenu(player, v) {
       await dismiss(player, v);
       break;
   }
+}
+
+/**
+ * 見た目（キャラクター）を選ぶ。職業の衣装はそのまま
+ * @param {Player} player
+ * @param {Entity} v
+ */
+async function chooseLooks(player, v) {
+  /** @type {Map<number, string>} */
+  const usedBy = new Map();
+  for (const o of getAllVillagers()) if (o.id !== v.id) usedBy.set(getCharacter(o), getName(o));
+  const form = new ActionFormData().title("見た目を選ぶ").body(`${getName(v)} の見た目を選んでください。\n転職しても見た目はそのままで、衣装だけが変わります。`);
+  CHARACTERS.forEach((c, i) => {
+    const who = usedBy.get(i);
+    form.button(`${c.gender === "m" ? "§9♂" : "§d♀"}§r ${c.name}（${BUILD_NAMES[c.build]}）${who ? ` §8[${who}]` : ""}\n§7${c.note}`);
+  });
+  const res = await form.show(player);
+  if (res.canceled || res.selection === undefined || !v.isValid) return;
+  setCharacter(v, res.selection);
+  player.sendMessage(`§a[blockAI] ${getName(v)} の見た目を変えました。`);
 }
 
 /**
@@ -302,15 +337,18 @@ async function villageSettings(player) {
       defaultValue: v.keepLoaded !== false,
     })
     .toggle("テストモード: 特技をレベルに関係なく全部使えるようにする", { defaultValue: !!v.testMode })
+    .toggle("村人が倒れても、翌朝に戻ってくる（OFFにすると、倒れたら二度と戻らない）", { defaultValue: reviveOn(v) })
     .show(player);
   if (res.canceled || !res.formValues) return;
   const keep = res.formValues[0] === true;
   const test = res.formValues[1] === true;
+  const revive = res.formValues[2] === true;
   setKeepLoaded(keep);
   setTestMode(test);
+  setRevive(revive);
   await applyLoading(player);
   player.sendMessage(
-    `§a[blockAI] 設定を保存しました。遠くでも村を動かす: ${keep ? "ON" : "OFF"} / テストモード: ${test ? "ON" : "OFF"}`,
+    `§a[blockAI] 設定を保存しました。遠くでも村を動かす: ${keep ? "ON" : "OFF"} / テストモード: ${test ? "ON" : "OFF"} / 翌朝に復活: ${revive ? "ON" : "OFF"}`,
   );
 }
 
@@ -498,6 +536,7 @@ async function dismiss(player, v) {
     .button2("解雇する")
     .show(player);
   if (res.selection !== 1 || !v.isValid) return;
+  forget(v.id);
   v.remove();
   player.sendMessage(`§e[blockAI] ${name} は村を去りました。`);
 }
@@ -578,6 +617,14 @@ async function showHelp(player) {
         "働くと経験値が貯まりレベルアップ（最大Lv10）。作業が速くなり、たくさん運べるようになります（Lv10で256個）。",
         "Lv5・Lv8・Lv10 で職業ごとの特技を覚えます（村人メニューで確認できます）。",
         "経験値は職業ごとに記録されます。別の職業に変えても、元の職業に戻せば続きからです。",
+        "",
+        "§e7. 体力と夜§r",
+        "体力は一番高い職業レベルで増えます（Lv1: 20 → Lv10: 40）。休んでいる間は少しずつ回復します。",
+        "夜になると村に戻り、空いているベッドで寝ます（ベッドが無ければ倉庫の前で休む）。朝には全回復します。",
+        "倒れた村人は、翌朝に元気になって戻ってきます（「村の設定」でOFFにすると戻りません）。",
+        "",
+        "§e8. 見た目§r",
+        "村人は男女20人のキャラクターから決まります。村人メニューの「見た目を選ぶ」で変えられます。転職すると衣装だけが変わります。",
         "",
         "§7※ プレイヤーから離れた村人は、移動や作業を省略して素早く仕事をします。",
       ].join("\n"),

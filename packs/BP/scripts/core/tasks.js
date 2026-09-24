@@ -18,6 +18,9 @@ let nextTaskId = 1;
 /** 演出用エンティティ（倒木など）のID。これ以外の演出用エンティティは片付ける */
 export const activeProps = new Set();
 
+/** ベッドの目印（夜だけ置く）のエンティティID */
+const homeWpIds = new Set();
+
 /** 倉庫マーカーのエンティティID */
 let storageWpId = /** @type {string | undefined} */ (undefined);
 
@@ -255,6 +258,7 @@ export function refreshStorageMarker(village) {
 export function cleanupMarkers() {
   const valid = new Set();
   if (storageWpId) valid.add(storageWpId);
+  for (const id of homeWpIds) valid.add(id);
   for (const t of tasks.values()) if (t.wpId) valid.add(t.wpId);
   for (const dimId of ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"]) {
     let list = [];
@@ -313,4 +317,32 @@ function removeEntityById(id) {
   } catch (e) {
     // 無視
   }
+}
+
+// ---------------------------------------------------------------
+// ベッドの目印（夜に村人が歩いて向かう）
+// ---------------------------------------------------------------
+
+/**
+ * @param {import("@minecraft/server").Dimension} dim
+ * @param {{x:number,y:number,z:number}} loc エンティティを置く位置
+ * @returns {string | undefined}
+ */
+export function spawnHomeMarker(dim, loc) {
+  try {
+    if (!dim.isChunkLoaded(loc)) return undefined;
+    const wp = dim.spawnEntity(WP_TASK_ID, loc);
+    wp.triggerEvent("blockai:home");
+    homeWpIds.add(wp.id);
+    return wp.id;
+  } catch (e) {
+    return undefined;
+  }
+}
+
+/** @param {string | undefined} id */
+export function removeHomeMarker(id) {
+  if (!id) return;
+  homeWpIds.delete(id);
+  removeEntityById(id);
 }

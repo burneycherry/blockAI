@@ -69,7 +69,7 @@ function isPassable(id) {
 registerJob({
   id: "lumberjack",
   name: "木こり",
-  skin: 4,
+  skin: 2,
   pack: "基本",
   description: "村の周りの自然の木を切り、苗木を植え直して原木を倉庫へ運びます。建物の柱は切りません。",
   status: { going: "木を切りに向かっている", working: "伐採中", waiting: "切れる木を探している" },

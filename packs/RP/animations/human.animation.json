@@ -1,0 +1,130 @@
+{
+  "format_version": "1.8.0",
+  "animations": {
+    "animation.blockai.human.look": {
+      "loop": true,
+      "bones": {
+        "head": {
+          "relative_to": {
+            "rotation": "entity"
+          },
+          "rotation": [
+            "query.target_x_rotation",
+            "query.target_y_rotation",
+            0
+          ]
+        }
+      }
+    },
+    "animation.blockai.human.walk": {
+      "loop": true,
+      "bones": {
+        "rightArm": {
+          "rotation": [
+            "-v.tcos0",
+            0,
+            "2.5 + math.sin(query.life_time * 80) * 1.5"
+          ]
+        },
+        "leftArm": {
+          "rotation": [
+            "v.tcos0",
+            0,
+            "-2.5 - math.sin(query.life_time * 80) * 1.5"
+          ]
+        },
+        "rightLeg": {
+          "rotation": [
+            "v.tcos0 * 1.4",
+            0,
+            0
+          ]
+        },
+        "leftLeg": {
+          "rotation": [
+            "v.tcos0 * -1.4",
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "animation.blockai.human.swing": {
+      "animation_length": 0.45,
+      "bones": {
+        "rightArm": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.12": [
+              -125,
+              0,
+              -8
+            ],
+            "0.3": [
+              -25,
+              0,
+              0
+            ],
+            "0.45": [
+              0,
+              0,
+              0
+            ]
+          }
+        },
+        "body": {
+          "rotation": {
+            "0.0": [
+              0,
+              0,
+              0
+            ],
+            "0.12": [
+              0,
+              -12,
+              0
+            ],
+            "0.3": [
+              0,
+              8,
+              0
+            ],
+            "0.45": [
+              0,
+              0,
+              0
+            ]
+          }
+        }
+      }
+    },
+    "animation.blockai.human.sleep": {
+      "loop": true,
+      "bones": {
+        "root": {
+          "rotation": [
+            -90,
+            0,
+            0
+          ],
+          "position": [
+            0,
+            -14,
+            0
+          ]
+        },
+        "head": {
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    }
+  }
+}

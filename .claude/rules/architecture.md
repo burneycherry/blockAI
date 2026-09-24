@@ -10,6 +10,9 @@
 - `core/loading.js`：`world.tickingAreaManager` で村と仕事場を常に読み込む
 - `core/ui.js`：村長メニュー・村人メニュー（server-ui のフォーム）
 - `core/blocks.js`：座標・ブロックの共通処理
+- `core/characters.js`：キャラクター20人の定義（`tools/gen-humans.mjs` もここを読む）
+- `core/beds.js`：夜の判定、ベッド探しと割り当て、ベッドの目印（`blockai_wp_home`）
+- `core/life.js`：倒れたときの記録と、翌朝の復活
 - `jobs/lumberjack.js`（基本パック）、`jobs/farmer.js`（農業パック予定）、`jobs/index.js` で読み込む
 
 ## 村人の移動
@@ -17,6 +20,11 @@
 - 職業ごとに枠（スロット、16個）があり、`blockai:mode_to_slot_N` で枠Nのマーカーだけを追う。定義は `tools/gen-entities.mjs` で生成する
 - 目的地に12秒近づけなければワープする。プレイヤーが40ブロック以内にいないときは、移動と作業を省略して一気に処理する
 - 追いかけ対象をリセットするため、倉庫マーカーは納品のたびに作り直す
+
+## 見た目
+- `tools/gen-humans.mjs` がモデル（3体型）・テクスチャ（キャラクター×衣装の全組み合わせを合成済みで書き出す）・描画・アニメーション・クライアント側の定義を生成する。手で直さない
+- 衣装を増やすときは `OUTFITS` に足し、職業の `skin` をその番号にする。道具（斧・鍬）や麦わら帽子のつばはモデルの部品で、`part_visibility` で出し分ける
+- 作業のアニメーションは、スクリプトの `playAnimation("animation.blockai.human.swing")` で再生する
 
 ## 職業の追加
 `jobs/xxx.js` で `registerJob({ id, name, skin, pack, status, scan, work, options, skills, onStorage, needsSupply })` を呼び、`jobs/index.js` に import を足す。`scan` は1列の一番上のブロックから仕事を `addTask(stand, blocks, data)` で登録する。`work(ctx)` はこなした数を返す。

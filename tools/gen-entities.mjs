@@ -62,8 +62,24 @@ const groups = {
   "blockai:mode_work": { "minecraft:behavior.random_look_around": { priority: 9 } },
 };
 for (let i = 0; i < SLOTS; i++) groups[`blockai:mode_to_slot_${i}`] = moveGroups(`blockai_wp_slot_${i}`);
-ent.component_groups = groups;
+// 夜にベッドへ向かう
+groups["blockai:mode_to_home"] = moveGroups("blockai_wp_home");
 const names = Object.keys(groups);
+// 体力（レベルで増える。core/config.js の MAX_HP と同じ値）
+const HP = [20, 22, 24, 27, 29, 31, 33, 36, 38, 40];
+const hpNames = HP.map((_, i) => `blockai:hp_${i}`);
+HP.forEach((hp, i) => {
+  groups[hpNames[i]] = { "minecraft:health": { value: hp, max: hp } };
+});
+ent.component_groups = groups;
+// 見た目（キャラクター・体型・寝ているか）
+ent.description.properties = {
+  "blockai:job": { type: "int", range: [0, 14], default: 0, client_sync: true },
+  "blockai:tier": { type: "int", range: [0, 4], default: 0, client_sync: true },
+  "blockai:char": { type: "int", range: [0, 19], default: 0, client_sync: true },
+  "blockai:build": { type: "int", range: [0, 2], default: 0, client_sync: true },
+  "blockai:pose": { type: "int", range: [0, 1], default: 0, client_sync: true },
+};
 const events = {
   "minecraft:entity_spawned": { add: { component_groups: ["blockai:mode_idle"] } },
 };
@@ -72,6 +88,9 @@ for (const g of names) {
     remove: { component_groups: names.filter((n) => n !== g) },
     add: { component_groups: [g] },
   };
+}
+for (const g of hpNames) {
+  events[g] = { remove: { component_groups: hpNames.filter((n) => n !== g) }, add: { component_groups: [g] } };
 }
 ent.events = events;
 out(vPath, villager);
@@ -90,6 +109,9 @@ for (let i = 0; i < SLOTS; i++) {
   };
   w.events[`blockai:slot_${i}`] = { add: { component_groups: [`blockai:slot_${i}`] } };
 }
+// ベッドの目印
+w.component_groups["blockai:home"] = { "minecraft:type_family": { family: ["blockai_wp", "blockai_wp_home"] } };
+w.events["blockai:home"] = { add: { component_groups: ["blockai:home"] } };
 out("packs/BP/entities/wp_task.json", wp);
 
 const rp = JSON.parse(readFileSync("packs/RP/entity/wp_storage.entity.json", "utf8"));

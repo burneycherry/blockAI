@@ -188,6 +188,14 @@
             "blockai_wp_slot_15"
           ]
         }
+      },
+      "blockai:home": {
+        "minecraft:type_family": {
+          "family": [
+            "blockai_wp",
+            "blockai_wp_home"
+          ]
+        }
       }
     },
     "events": {
@@ -300,6 +308,13 @@
         "add": {
           "component_groups": [
             "blockai:slot_15"
+          ]
+        }
+      },
+      "blockai:home": {
+        "add": {
+          "component_groups": [
+            "blockai:home"
           ]
         }
       }

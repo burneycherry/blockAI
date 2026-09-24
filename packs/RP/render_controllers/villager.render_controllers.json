@@ -1,114 +1,102 @@
 {
   "format_version": "1.8.0",
   "render_controllers": {
-    "controller.render.blockai_villager_base": {
+    "controller.render.blockai_human": {
       "arrays": {
         "textures": {
           "Array.skins": [
-            "Texture.base",
-            "Texture.base2",
-            "Texture.base3",
-            "Texture.base4",
-            "Texture.base5",
-            "Texture.base6"
-          ],
-          "Array.baby_skins": [
-            "Texture.baby_base",
-            "Texture.baby_base2",
-            "Texture.baby_base3",
-            "Texture.baby_base4",
-            "Texture.baby_base5",
-            "Texture.baby_base6"
+            "Texture.c0_casual",
+            "Texture.c0_farmer",
+            "Texture.c0_lumberjack",
+            "Texture.c1_casual",
+            "Texture.c1_farmer",
+            "Texture.c1_lumberjack",
+            "Texture.c2_casual",
+            "Texture.c2_farmer",
+            "Texture.c2_lumberjack",
+            "Texture.c3_casual",
+            "Texture.c3_farmer",
+            "Texture.c3_lumberjack",
+            "Texture.c4_casual",
+            "Texture.c4_farmer",
+            "Texture.c4_lumberjack",
+            "Texture.c5_casual",
+            "Texture.c5_farmer",
+            "Texture.c5_lumberjack",
+            "Texture.c6_casual",
+            "Texture.c6_farmer",
+            "Texture.c6_lumberjack",
+            "Texture.c7_casual",
+            "Texture.c7_farmer",
+            "Texture.c7_lumberjack",
+            "Texture.c8_casual",
+            "Texture.c8_farmer",
+            "Texture.c8_lumberjack",
+            "Texture.c9_casual",
+            "Texture.c9_farmer",
+            "Texture.c9_lumberjack",
+            "Texture.c10_casual",
+            "Texture.c10_farmer",
+            "Texture.c10_lumberjack",
+            "Texture.c11_casual",
+            "Texture.c11_farmer",
+            "Texture.c11_lumberjack",
+            "Texture.c12_casual",
+            "Texture.c12_farmer",
+            "Texture.c12_lumberjack",
+            "Texture.c13_casual",
+            "Texture.c13_farmer",
+            "Texture.c13_lumberjack",
+            "Texture.c14_casual",
+            "Texture.c14_farmer",
+            "Texture.c14_lumberjack",
+            "Texture.c15_casual",
+            "Texture.c15_farmer",
+            "Texture.c15_lumberjack",
+            "Texture.c16_casual",
+            "Texture.c16_farmer",
+            "Texture.c16_lumberjack",
+            "Texture.c17_casual",
+            "Texture.c17_farmer",
+            "Texture.c17_lumberjack",
+            "Texture.c18_casual",
+            "Texture.c18_farmer",
+            "Texture.c18_lumberjack",
+            "Texture.c19_casual",
+            "Texture.c19_farmer",
+            "Texture.c19_lumberjack"
+          ]
+        },
+        "geometries": {
+          "Array.geos": [
+            "Geometry.wide",
+            "Geometry.slim",
+            "Geometry.macho"
           ]
         }
       },
-      "geometry": "Geometry.default",
+      "geometry": "Array.geos[v.build]",
       "materials": [
         {
           "*": "Material.default"
         }
       ],
       "textures": [
-        "query.is_baby ? Array.baby_skins[query.skin_id] : Array.skins[query.skin_id]"
-      ]
-    },
-    "controller.render.blockai_villager_masked": {
-      "arrays": {
-        "textures": {
-          "Array.biomes": [
-            "Texture.plains",
-            "Texture.desert",
-            "Texture.jungle",
-            "Texture.savanna",
-            "Texture.snow",
-            "Texture.swamp",
-            "Texture.taiga"
-          ],
-          "Array.baby_biomes": [
-            "Texture.baby_plains",
-            "Texture.baby_desert",
-            "Texture.baby_jungle",
-            "Texture.baby_savanna",
-            "Texture.baby_snow",
-            "Texture.baby_swamp",
-            "Texture.baby_taiga"
-          ],
-          "Array.professions": [
-            "Texture.unskilled",
-            "Texture.farmer",
-            "Texture.fisherman",
-            "Texture.shepherd",
-            "Texture.fletcher",
-            "Texture.librarian",
-            "Texture.cartographer",
-            "Texture.cleric",
-            "Texture.armorer",
-            "Texture.weapon_smith",
-            "Texture.tool_smith",
-            "Texture.butcher",
-            "Texture.leatherworker",
-            "Texture.stonemason",
-            "Texture.nitwit"
-          ]
-        }
-      },
-      "geometry": "Geometry.default",
-      "materials": [
-        {
-          "*": "(query.is_baby || variable.profession_index == 0) ? Material.default : Material.masked"
-        }
+        "Array.skins[v.char * 3 + (v.outfit < 3 ? v.outfit : 0)]"
       ],
-      "textures": [
-        "query.is_baby ? Array.baby_biomes[query.mark_variant] : Array.biomes[query.mark_variant]",
-        "Array.professions[variable.profession_index]"
-      ]
-    },
-    "controller.render.blockai_villager_level": {
-      "arrays": {
-        "textures": {
-          "Array.levels": [
-            "Texture.level_stone",
-            "Texture.level_iron",
-            "Texture.level_gold",
-            "Texture.level_emerald",
-            "Texture.level_diamond"
-          ]
-        }
-      },
-      "rebuild_animation_matrices": true,
-      "geometry": "Geometry.default",
       "part_visibility": [
         {
-          "*": "!query.is_baby && variable.profession_index != 0 && variable.profession_index != 14"
-        }
-      ],
-      "materials": [
+          "*": true
+        },
         {
-          "*": "Material.default"
+          "tool_axe": "v.outfit == 2 && !v.sleep"
+        },
+        {
+          "tool_hoe": "v.outfit == 1 && !v.sleep"
+        },
+        {
+          "brim": "v.outfit == 1"
         }
-      ],
-      "textures": [
-        "Array.levels[variable.level_index]"
       ]
     },
     "controller.render.blockai_invisible": {

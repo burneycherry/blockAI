@@ -23,6 +23,33 @@
           ],
           "default": 0,
           "client_sync": true
+        },
+        "blockai:char": {
+          "type": "int",
+          "range": [
+            0,
+            19
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "blockai:build": {
+          "type": "int",
+          "range": [
+            0,
+            2
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "blockai:pose": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
         }
       }
     },
@@ -480,6 +507,92 @@
           "track_target": true,
           "require_complete_path": false
         }
+      },
+      "blockai:mode_to_home": {
+        "minecraft:behavior.nearest_attackable_target": {
+          "priority": 2,
+          "must_see": false,
+          "must_reach": false,
+          "reselect_targets": true,
+          "within_radius": 64,
+          "scan_interval": 10,
+          "entity_types": [
+            {
+              "filters": {
+                "test": "is_family",
+                "subject": "other",
+                "value": "blockai_wp_home"
+              },
+              "max_dist": 64
+            }
+          ]
+        },
+        "minecraft:behavior.melee_attack": {
+          "priority": 3,
+          "speed_multiplier": 1,
+          "track_target": true,
+          "require_complete_path": false
+        }
+      },
+      "blockai:hp_0": {
+        "minecraft:health": {
+          "value": 20,
+          "max": 20
+        }
+      },
+      "blockai:hp_1": {
+        "minecraft:health": {
+          "value": 22,
+          "max": 22
+        }
+      },
+      "blockai:hp_2": {
+        "minecraft:health": {
+          "value": 24,
+          "max": 24
+        }
+      },
+      "blockai:hp_3": {
+        "minecraft:health": {
+          "value": 27,
+          "max": 27
+        }
+      },
+      "blockai:hp_4": {
+        "minecraft:health": {
+          "value": 29,
+          "max": 29
+        }
+      },
+      "blockai:hp_5": {
+        "minecraft:health": {
+          "value": 31,
+          "max": 31
+        }
+      },
+      "blockai:hp_6": {
+        "minecraft:health": {
+          "value": 33,
+          "max": 33
+        }
+      },
+      "blockai:hp_7": {
+        "minecraft:health": {
+          "value": 36,
+          "max": 36
+        }
+      },
+      "blockai:hp_8": {
+        "minecraft:health": {
+          "value": 38,
+          "max": 38
+        }
+      },
+      "blockai:hp_9": {
+        "minecraft:health": {
+          "value": 40,
+          "max": 40
+        }
       }
     },
     "components": {
@@ -590,7 +703,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -619,7 +733,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -648,7 +763,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -677,7 +793,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -706,7 +823,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -735,7 +853,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -764,7 +883,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -793,7 +913,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -822,7 +943,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -851,7 +973,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -880,7 +1003,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -909,7 +1033,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -938,7 +1063,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -967,7 +1093,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -996,7 +1123,8 @@
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -1025,7 +1153,8 @@
             "blockai:mode_to_slot_11",
             "blockai:mode_to_slot_13",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -1054,7 +1183,8 @@
             "blockai:mode_to_slot_11",
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_14",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -1083,7 +1213,8 @@
             "blockai:mode_to_slot_11",
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
-            "blockai:mode_to_slot_15"
+            "blockai:mode_to_slot_15",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
@@ -1112,12 +1243,243 @@
             "blockai:mode_to_slot_11",
             "blockai:mode_to_slot_12",
             "blockai:mode_to_slot_13",
-            "blockai:mode_to_slot_14"
+            "blockai:mode_to_slot_14",
+            "blockai:mode_to_home"
           ]
         },
         "add": {
           "component_groups": [
             "blockai:mode_to_slot_15"
+          ]
+        }
+      },
+      "blockai:mode_to_home": {
+        "remove": {
+          "component_groups": [
+            "blockai:mode_idle",
+            "blockai:mode_to_storage",
+            "blockai:mode_work",
+            "blockai:mode_to_slot_0",
+            "blockai:mode_to_slot_1",
+            "blockai:mode_to_slot_2",
+            "blockai:mode_to_slot_3",
+            "blockai:mode_to_slot_4",
+            "blockai:mode_to_slot_5",
+            "blockai:mode_to_slot_6",
+            "blockai:mode_to_slot_7",
+            "blockai:mode_to_slot_8",
+            "blockai:mode_to_slot_9",
+            "blockai:mode_to_slot_10",
+            "blockai:mode_to_slot_11",
+            "blockai:mode_to_slot_12",
+            "blockai:mode_to_slot_13",
+            "blockai:mode_to_slot_14",
+            "blockai:mode_to_slot_15"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:mode_to_home"
+          ]
+        }
+      },
+      "blockai:hp_0": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_0"
+          ]
+        }
+      },
+      "blockai:hp_1": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_1"
+          ]
+        }
+      },
+      "blockai:hp_2": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_2"
+          ]
+        }
+      },
+      "blockai:hp_3": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_3"
+          ]
+        }
+      },
+      "blockai:hp_4": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_4"
+          ]
+        }
+      },
+      "blockai:hp_5": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_5"
+          ]
+        }
+      },
+      "blockai:hp_6": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_7",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_6"
+          ]
+        }
+      },
+      "blockai:hp_7": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_8",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_7"
+          ]
+        }
+      },
+      "blockai:hp_8": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_9"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_8"
+          ]
+        }
+      },
+      "blockai:hp_9": {
+        "remove": {
+          "component_groups": [
+            "blockai:hp_0",
+            "blockai:hp_1",
+            "blockai:hp_2",
+            "blockai:hp_3",
+            "blockai:hp_4",
+            "blockai:hp_5",
+            "blockai:hp_6",
+            "blockai:hp_7",
+            "blockai:hp_8"
+          ]
+        },
+        "add": {
+          "component_groups": [
+            "blockai:hp_9"
           ]
         }
       }

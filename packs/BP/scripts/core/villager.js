@@ -8,17 +8,20 @@ import {
   VILLAGER_ID,
   VILLAGER_NAMES,
   carryCapacity,
+  maxHp,
   workInterval,
 } from "./config.js";
+import { CHARACTERS } from "./characters.js";
+import { assignBed, bedUsable, isNight, markBed, releaseBed, unmarkBed } from "./beds.js";
 import { addStat, getVillage, workArea } from "./village.js";
 import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, tasks } from "./tasks.js";
-import { dist2h, safeBlock, storageStand } from "./blocks.js";
+import { dist2h, safeBlock, standPosNear, storageStand } from "./blocks.js";
 import { getJobDef, skillLevel } from "./registry.js";
 
 /**
  * @typedef {import("@minecraft/server").Entity} Entity
  * @typedef {{x:number,y:number,z:number}} Pos
- * @typedef {"idle"|"to_task"|"working"|"to_storage"|"depositing"} Mode
+ * @typedef {"idle"|"to_task"|"working"|"to_storage"|"depositing"|"to_bed"|"sleeping"|"to_rest"|"resting"} Mode
  * @typedef {{
  *   mode: Mode,
  *   event: string,
@@ -27,7 +30,11 @@ import { getJobDef, skillLevel } from "./registry.js";
  *   supplyAfter: number,
  *   anchorTick: number,
  *   nextWork: number,
- *   status: string
+ *   status: string,
+ *   lastHurt: number,
+ *   nextRegen: number,
+ *   rested: boolean,
+ *   bed: import("./beds.js").Bed | undefined
  * }} State
  */
 
@@ -195,13 +202,100 @@ export function carryTotal(carry) {
  */
 export function initVillager(e) {
   if (typeof e.getDynamicProperty("blockai:name") === "string") return;
+  const ch = pickFreeCharacter(e);
+  e.setDynamicProperty("blockai:char", ch);
   const used = new Set(getAllVillagers().map(getName));
+  const own = CHARACTERS[ch].name;
   const free = VILLAGER_NAMES.filter((n) => !used.has(n));
   const pool = free.length > 0 ? free : VILLAGER_NAMES;
-  e.setDynamicProperty("blockai:name", pool[Math.floor(Math.random() * pool.length)]);
+  e.setDynamicProperty("blockai:name", used.has(own) ? pool[Math.floor(Math.random() * pool.length)] : own);
   e.setDynamicProperty("blockai:job", "none");
   applyLooks(e);
   updateNameTag(e, "");
+}
+
+/**
+ * まだ誰も使っていないキャラクターを選ぶ（全員使っていれば重複あり）
+ * @param {Entity} self
+ */
+function pickFreeCharacter(self) {
+  const used = new Set();
+  for (const v of getAllVillagers()) {
+    if (v.id === self.id) continue;
+    const c = v.getDynamicProperty("blockai:char");
+    if (typeof c === "number") used.add(c);
+  }
+  const free = CHARACTERS.map((_, i) => i).filter((i) => !used.has(i));
+  const pool = free.length > 0 ? free : CHARACTERS.map((_, i) => i);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * 見た目のキャラクター番号
+ * @param {Entity} e
+ */
+export function getCharacter(e) {
+  let c = e.getDynamicProperty("blockai:char");
+  if (typeof c !== "number" || !CHARACTERS[c]) {
+    c = pickFreeCharacter(e);
+    e.setDynamicProperty("blockai:char", c);
+  }
+  return c;
+}
+
+/**
+ * 見た目を変える（名前がキャラクターの名前のままなら、名前も合わせる）
+ * @param {Entity} e
+ * @param {number} ch
+ */
+export function setCharacter(e, ch) {
+  const old = CHARACTERS[getCharacter(e)];
+  e.setDynamicProperty("blockai:char", ch);
+  if (old && getName(e) === old.name) e.setDynamicProperty("blockai:name", CHARACTERS[ch].name);
+  applyLooks(e);
+  updateNameTag(e, states.get(e.id)?.status ?? "");
+}
+
+/**
+ * 一番高い職業レベル（体力はこれで決まる）
+ * @param {Entity} e
+ */
+export function bestLevel(e) {
+  let lv = levelOf(getXp(e));
+  for (const h of jobHistory(e)) lv = Math.max(lv, levelOf(h.xp));
+  return lv;
+}
+
+/**
+ * 今の体力と最大値
+ * @param {Entity} e
+ */
+export function getHp(e) {
+  const h = e.getComponent("minecraft:health");
+  return { cur: Math.ceil(h?.currentValue ?? 0), max: Math.round(h?.effectiveMax ?? maxHp(bestLevel(e))) };
+}
+
+/**
+ * @param {Entity} e
+ * @param {number} amount Infinity なら全回復
+ */
+function heal(e, amount) {
+  const h = e.getComponent("minecraft:health");
+  if (!h) return;
+  if (amount === Infinity) h.resetToMaxValue();
+  else h.setCurrentValue(Math.min(h.effectiveMax, h.currentValue + amount));
+}
+
+/**
+ * ダメージを受けた（しばらく回復しない。寝ていたら起きる）
+ * @param {Entity} e
+ * @param {number} tick
+ */
+export function noteHurt(e, tick) {
+  const st = states.get(e.id);
+  if (!st) return;
+  st.lastHurt = tick;
+  if (st.mode === "sleeping") wake(e, st, tick, false);
 }
 
 /**
@@ -229,14 +323,29 @@ export function setName(e, name) {
   updateNameTag(e, states.get(e.id)?.status ?? "");
 }
 
-/** 職業とレベルを見た目に反映 @param {Entity} e */
+/** 職業・キャラクター・レベルを見た目と体力に反映 @param {Entity} e */
 function applyLooks(e) {
   try {
+    const ch = getCharacter(e);
     e.setProperty("blockai:job", getJob(e).skin);
     e.setProperty("blockai:tier", badgeTier(levelOf(getXp(e))));
+    e.setProperty("blockai:char", ch);
+    e.setProperty("blockai:build", CHARACTERS[ch].build);
+    // 体力の最大値（一番高い職業レベルで決まる。段階が変わると全回復）
+    const tier = bestLevel(e) - 1;
+    if (e.getDynamicProperty("blockai:hp") !== tier) {
+      e.triggerEvent(`blockai:hp_${tier}`);
+      e.setDynamicProperty("blockai:hp", tier);
+    }
   } catch (err) {
     // 読み込み直後などは失敗することがある
   }
+}
+
+/** 見た目と体力を反映し直す（復活したときなど） @param {Entity} e */
+export function refreshLooks(e) {
+  applyLooks(e);
+  updateNameTag(e, "");
 }
 
 /**
@@ -287,6 +396,10 @@ function setMode(e, st, mode, tick) {
     working: "blockai:mode_work",
     to_storage: "blockai:mode_to_storage",
     depositing: "blockai:mode_work",
+    to_bed: "blockai:mode_to_home",
+    sleeping: "blockai:mode_work",
+    to_rest: "blockai:mode_to_storage",
+    resting: "blockai:mode_work",
   }[mode];
   let event = ev;
   if (mode === "to_task") {
@@ -353,8 +466,18 @@ export function tickVillagers(tick) {
         supplyAfter: 0,
         nextWork: 0,
         status: "",
+        lastHurt: -1000,
+        nextRegen: 0,
+        rested: false,
+        bed: undefined,
       };
       states.set(e.id, st);
+      // 寝ている途中でワールドを閉じた場合に備えて、起きた姿勢に戻す
+      try {
+        e.setProperty("blockai:pose", 0);
+      } catch (err) {
+        // 無視
+      }
       initVillager(e);
       applyLooks(e);
       setMode(e, st, "idle", tick);
@@ -382,17 +505,19 @@ function step(e, st, village, tick) {
     st.status = village ? "村から遠く離れている" : "村がまだありません";
     return;
   }
+  regen(e, st, tick);
+  const level = levelOf(getXp(e));
+  const cap = carryCapacity(level);
+  const carry = getCarry(e);
+  const total = carryTotal(carry);
+  if (nightStep(e, st, village, tick, total)) return;
+
   if (!job.work || !job.status) {
     setMode(e, st, "idle", tick);
     st.status = "のんびり中";
     return;
   }
   const status = job.status;
-
-  const level = levelOf(getXp(e));
-  const cap = carryCapacity(level);
-  const carry = getCarry(e);
-  const total = carryTotal(carry);
 
   switch (st.mode) {
     case "idle":
@@ -466,6 +591,13 @@ function step(e, st, village, tick) {
       setCarry(e, carry);
       setBag(e, bag);
       if (got > 0) gainXp(e, got);
+      if (got > 0 && watched) {
+        try {
+          e.playAnimation("animation.blockai.human.swing");
+        } catch (err) {
+          // 無視
+        }
+      }
       st.nextWork = tick + delay;
       st.status = `${status.working} (${carryTotal(carry)}/${cap})`;
       return;
@@ -527,6 +659,12 @@ function step(e, st, village, tick) {
  * @param {number} cap
  */
 function decide(e, st, village, tick, job, total, cap) {
+  // 夜は荷物をしまってから休む
+  if (isNight()) {
+    if (total > 0 && village.storage) goStorage(e, st, village, tick);
+    else goRest(e, st, village, tick);
+    return;
+  }
   if (total >= cap) {
     goStorage(e, st, village, tick);
     return;
@@ -567,6 +705,175 @@ function goStorage(e, st, village, tick) {
     return;
   }
   setMode(e, st, "to_storage", tick);
+}
+
+// ---------------------------------------------------------------
+// 夜・休む・体力の回復
+// ---------------------------------------------------------------
+
+const REST_MODES = new Set(["to_bed", "sleeping", "to_rest", "resting"]);
+
+/**
+ * 夜の行動。処理したら true
+ * @param {Entity} e
+ * @param {State} st
+ * @param {import("./village.js").VillageData} village
+ * @param {number} tick
+ * @param {number} total 持ち物の数
+ */
+function nightStep(e, st, village, tick, total) {
+  if (!isNight()) {
+    if (REST_MODES.has(st.mode)) wake(e, st, tick, true);
+    return false;
+  }
+  switch (st.mode) {
+    case "idle":
+    case "to_task":
+    case "working":
+      releaseTask(st);
+      if (total > 0 && village.storage) goStorage(e, st, village, tick);
+      else goRest(e, st, village, tick);
+      return true;
+    case "to_storage":
+    case "depositing":
+      // 荷物をしまい終わるまでは普段どおり（しまった後に decide で休みに行く）
+      return false;
+    case "to_bed": {
+      const bed = st.bed;
+      if (!bed || !bedUsable(e.dimension, bed)) {
+        goRest(e, st, village, tick);
+        return true;
+      }
+      st.status = "寝床へ向かっている";
+      if (isWatched(e)) markBed(e.dimension, bed);
+      const d2 = dist2h(bed.mid, e.location);
+      if (d2 <= 1.8 * 1.8) {
+        sleepOn(e, st, bed, tick);
+      } else if (!isWatched(e) || stuck(e, st, tick, bed.foot)) {
+        sleepOn(e, st, bed, tick);
+      }
+      return true;
+    }
+    case "sleeping": {
+      const bed = st.bed;
+      if (!bed || !bedUsable(e.dimension, bed)) {
+        wake(e, st, tick, false);
+        goRest(e, st, village, tick);
+        return true;
+      }
+      st.status = "Zzz… 寝ている";
+      // 押されてずれたら寝床に戻す
+      if (dist2h(bed.mid, e.location) > 0.3 * 0.3 || Math.abs(e.location.y - bed.mid.y) > 0.4) placeOnBed(e, bed);
+      return true;
+    }
+    case "to_rest": {
+      const s = village.storage ?? village.center;
+      st.status = "休みに戻っている";
+      if (dist2h(s, e.location, true) <= 3.5 * 3.5 || !village.storage) {
+        setMode(e, st, "resting", tick);
+        st.rested = true;
+      } else if (!isWatched(e) || stuck(e, st, tick, s)) {
+        warpTo(e, storageStand(e.dimension, s));
+        setMode(e, st, "resting", tick);
+        st.rested = true;
+      }
+      return true;
+    }
+    case "resting":
+      st.status = "休んでいる（ベッドが無い）";
+      return true;
+  }
+  return false;
+}
+
+/**
+ * 寝床（空いているベッド）へ向かう。無ければ倉庫の前で休む
+ * @param {Entity} e
+ * @param {State} st
+ * @param {import("./village.js").VillageData} village
+ * @param {number} tick
+ */
+function goRest(e, st, village, tick) {
+  const bed = assignBed(e, village);
+  st.bed = bed;
+  if (bed) {
+    if (isWatched(e)) markBed(e.dimension, bed);
+    setMode(e, st, "to_bed", tick);
+    st.status = "寝床へ向かっている";
+    return;
+  }
+  setMode(e, st, "to_rest", tick);
+  st.status = "休みに戻っている";
+}
+
+/**
+ * @param {Entity} e
+ * @param {import("./beds.js").Bed} bed
+ */
+function placeOnBed(e, bed) {
+  try {
+    e.teleport(bed.mid, { facingLocation: { x: bed.head.x + 0.5, y: bed.mid.y, z: bed.head.z + 0.5 } });
+  } catch (err) {
+    // 無視
+  }
+}
+
+/**
+ * @param {Entity} e
+ * @param {State} st
+ * @param {import("./beds.js").Bed} bed
+ * @param {number} tick
+ */
+function sleepOn(e, st, bed, tick) {
+  unmarkBed(bed);
+  setMode(e, st, "sleeping", tick);
+  placeOnBed(e, bed);
+  try {
+    e.setProperty("blockai:pose", 1);
+  } catch (err) {
+    // 無視
+  }
+  st.rested = true;
+  st.status = "Zzz… 寝ている";
+}
+
+/**
+ * 起きる。朝まで休んでいたら全回復
+ * @param {Entity} e
+ * @param {State} st
+ * @param {number} tick
+ * @param {boolean} morning
+ */
+function wake(e, st, tick, morning) {
+  const bed = st.bed;
+  try {
+    if (e.getProperty("blockai:pose") === 1) {
+      e.setProperty("blockai:pose", 0);
+      if (bed) e.teleport(standPosNear(e.dimension, bed.foot));
+    }
+  } catch (err) {
+    // 無視
+  }
+  if (morning && st.rested) heal(e, Infinity);
+  st.rested = false;
+  st.bed = undefined;
+  releaseBed(e.id);
+  setMode(e, st, "idle", tick);
+  st.status = "";
+}
+
+/**
+ * 休んでいる間は少しずつ回復する（しばらくダメージを受けていなければ）
+ * @param {Entity} e
+ * @param {State} st
+ * @param {number} tick
+ */
+function regen(e, st, tick) {
+  if (tick - st.lastHurt < 200 || tick < st.nextRegen) return;
+  const calm = st.mode === "idle" || st.mode === "depositing" || st.mode === "resting" || st.mode === "sleeping";
+  if (!calm) return;
+  heal(e, 1);
+  st.nextRegen = tick + (st.mode === "sleeping" ? 20 : 40);
 }
 
 /**

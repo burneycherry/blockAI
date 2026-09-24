@@ -2,11 +2,15 @@ import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/serv
 import { STAFF_ID, VILLAGER_ID } from "./core/config.js";
 import { getVillage } from "./core/village.js";
 import { cleanupMarkers, ensureStorageMarker, requestScan } from "./core/tasks.js";
-import { getAllVillagers, getJob, initVillager, tickVillagers } from "./core/villager.js";
+import { getAllVillagers, getJob, initVillager, noteHurt, tickVillagers } from "./core/villager.js";
+import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
 import { syncTickingAreas } from "./core/loading.js";
 // 職業の部品を登録する
 import "./jobs/index.js";
+
+/** メインループの時計（0.5秒ごとに10ずつ進む） */
+let tick = 0;
 
 /** 同じ操作でメニューが2重に開かないようにする */
 /** @type {Map<string, number>} */
@@ -87,6 +91,20 @@ world.afterEvents.entitySpawn.subscribe((ev) => {
   });
 });
 
+// 村人がダメージを受けた・倒れた
+world.afterEvents.entityHurt.subscribe(
+  (ev) => {
+    if (ev.hurtEntity.isValid) noteHurt(ev.hurtEntity, tick);
+  },
+  { entityTypes: [VILLAGER_ID] },
+);
+world.afterEvents.entityDie.subscribe(
+  (ev) => {
+    onVillagerDie(ev.deadEntity);
+  },
+  { entityTypes: [VILLAGER_ID] },
+);
+
 // 初めて来たプレイヤーに村長の杖を渡す
 world.afterEvents.playerSpawn.subscribe((ev) => {
   if (!ev.initialSpawn) return;
@@ -103,7 +121,6 @@ world.afterEvents.playerSpawn.subscribe((ev) => {
 });
 
 // メインループ（0.5秒ごと）
-let tick = 0;
 system.runInterval(() => {
   tick += 10;
   tickVillagers(tick);
@@ -115,7 +132,11 @@ system.runInterval(() => {
     const active = new Set(getAllVillagers().map((v) => getJob(v).id));
     requestScan(village, active);
   }
-  if (tick % 200 === 0) cleanupMarkers();
+  if (tick % 200 === 0) {
+    cleanupMarkers();
+    saveRoster();
+    reviveFallen();
+  }
   // 村の範囲（村レベルで広がる）を読み込み続ける設定を反映
   if (tick % 1200 === 100) syncTickingAreas(village).catch((err) => console.warn(`[blockAI] ticking area: ${err}`));
 }, 10);

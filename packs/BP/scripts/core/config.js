@@ -1,7 +1,7 @@
 // 調整用の定数をまとめたファイル
 
 /** パックのバージョン（manifest.json と合わせる） */
-export const VERSION = "0.11.2";
+export const VERSION = "0.12.0";
 
 export const VILLAGER_ID = "blockai:villager";
 export const STAFF_ID = "blockai:mayor_staff";
@@ -40,6 +40,18 @@ export function workInterval(level) {
 export function carryCapacity(level) {
   return CAPACITY[lvIndex(level)];
 }
+
+/** レベルごとの体力の最大値（tools/gen-entities.mjs の HP と同じ） */
+export const MAX_HP = [20, 22, 24, 27, 29, 31, 33, 36, 38, 40];
+
+/** @param {number} level */
+export function maxHp(level) {
+  return MAX_HP[lvIndex(level)];
+}
+
+/** 夜（村人が休む時間）。getTimeOfDay の値 */
+export const NIGHT_START = 13000;
+export const NIGHT_END = 23000;
 
 /** 頭の上のバッジ（石・鉄・金・エメラルド・ダイヤ）。2レベルごとに上がる @param {number} level */
 export function badgeTier(level) {
