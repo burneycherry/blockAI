@@ -1,5 +1,5 @@
 // 夜の寝床（村のベッドを探して、村人に1つずつ割り当てる）
-import { BlockVolume, world } from "@minecraft/server";
+import { BlockVolume, system, world } from "@minecraft/server";
 import { NIGHT_END, NIGHT_START } from "./config.js";
 import { key, safeBlock } from "./blocks.js";
 import { removeHomeMarker, spawnHomeMarker } from "./tasks.js";
@@ -20,8 +20,10 @@ export function isNight() {
 
 /** @type {Bed[]} */
 let beds = [];
-/** その日のうちに一度だけ探す */
+/** 日が変わったら探し直す */
 let bedsDay = -1;
+/** 最後に探した時刻（空きが無いときに、置かれたばかりのベッドを見つけるため探し直す） */
+let lastScan = -10000;
 /** 村人ID → ベッド */
 /** @type {Map<string, Bed>} */
 const assigned = new Map();
@@ -97,10 +99,21 @@ export function assignBed(e, village) {
     releaseAllBeds();
     beds = scanBeds(village);
     bedsDay = day;
+    lastScan = system.currentTick;
   }
   const mine = assigned.get(e.id);
   if (mine && bedUsable(e.dimension, mine)) return mine;
   if (mine) releaseBed(e.id);
+  const found = pickBed(e);
+  if (found || system.currentTick - lastScan < 200) return found;
+  // 空きが無ければ、新しく置かれたベッドが無いか探し直す（10秒に1回まで）
+  beds = scanBeds(village);
+  lastScan = system.currentTick;
+  return pickBed(e);
+}
+
+/** @param {import("@minecraft/server").Entity} e */
+function pickBed(e) {
   const taken = new Set([...assigned.values()].map((b) => b.key));
   for (const bed of beds) {
     if (taken.has(bed.key) || !bedUsable(e.dimension, bed)) continue;

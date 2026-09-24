@@ -15,7 +15,7 @@ import { CHARACTERS } from "./characters.js";
 import { assignBed, bedUsable, isNight, markBed, releaseBed, unmarkBed } from "./beds.js";
 import { addStat, getVillage, workArea } from "./village.js";
 import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, tasks } from "./tasks.js";
-import { dist2h, safeBlock, standPosNear, storageStand } from "./blocks.js";
+import { canStand, dist2h, safeBlock, standPosNear, storageStand } from "./blocks.js";
 import { getJobDef, skillLevel } from "./registry.js";
 
 /**
@@ -34,7 +34,8 @@ import { getJobDef, skillLevel } from "./registry.js";
  *   lastHurt: number,
  *   nextRegen: number,
  *   rested: boolean,
- *   bed: import("./beds.js").Bed | undefined
+ *   bed: import("./beds.js").Bed | undefined,
+ *   assisted: boolean
  * }} State
  */
 
@@ -412,6 +413,7 @@ function setMode(e, st, mode, tick) {
   }
   st.bestDist = Infinity;
   st.anchorTick = tick;
+  stopAssist(e, st);
 }
 
 /** @param {State} st */
@@ -470,6 +472,7 @@ export function tickVillagers(tick) {
         nextRegen: 0,
         rested: false,
         bed: undefined,
+        assisted: false,
       };
       states.set(e.id, st);
       // 寝ている途中でワールドを閉じた場合に備えて、起きた姿勢に戻す
@@ -539,10 +542,7 @@ function step(e, st, village, tick) {
         return;
       }
       st.status = status.going;
-      // 見られていない、または立ち往生しているならワープ
-      if (!isWatched(e) || stuck(e, st, tick, task.stand)) {
-        warpTo(e, task.stand);
-      }
+      if (travel(e, st, tick, task.stand, task.stand)) warpTo(e, task.stand);
       return;
     }
 
@@ -618,9 +618,8 @@ function step(e, st, village, tick) {
         return;
       }
       st.status = total > 0 ? `倉庫へ運んでいる (${total})` : "倉庫へ材料を取りに行っている";
-      if (!isWatched(e) || stuck(e, st, tick, s)) {
-        warpTo(e, storageStand(e.dimension, s));
-      }
+      const stand = storageStand(e.dimension, s);
+      if (travel(e, st, tick, s, stand)) warpTo(e, stand);
       return;
     }
 
@@ -708,6 +707,92 @@ function goStorage(e, st, village, tick) {
 }
 
 // ---------------------------------------------------------------
+// 移動（見られている間は歩く。自力で進めないときは手を引いて歩かせる）
+// ---------------------------------------------------------------
+
+/** 自力で進めないとき、この秒数で手引きに切り替える */
+const ASSIST_AFTER = 4;
+/** 手引きで歩く速さ（ブロック/tick） */
+const ASSIST_SPEED = 0.14;
+
+/** 手引き中の村人 → 目的地 */
+/** @type {Map<string, Pos>} */
+const assists = new Map();
+
+/**
+ * 目的地へ向かう1ステップ。ワープすべきときは true
+ * @param {Entity} e
+ * @param {State} st
+ * @param {number} tick
+ * @param {Pos} target 近づいたか測る場所（ブロック座標）
+ * @param {Pos} dest 手引きで向かう立ち位置（ブロック座標）
+ */
+function travel(e, st, tick, target, dest) {
+  if (!isWatched(e)) return true;
+  if (!stuck(e, st, tick, target, st.assisted ? STUCK_SECONDS : ASSIST_AFTER)) return false;
+  if (st.assisted) {
+    stopAssist(e, st);
+    return true;
+  }
+  st.assisted = true;
+  st.bestDist = Infinity;
+  assists.set(e.id, dest);
+  return false;
+}
+
+/**
+ * @param {Entity} e
+ * @param {State} st
+ */
+function stopAssist(e, st) {
+  assists.delete(e.id);
+  st.assisted = false;
+}
+
+/** 手引き中の村人を1tick分歩かせる（毎tick呼ぶ） */
+export function tickAssist() {
+  for (const [id, dest] of assists) {
+    const e = world.getEntity(id);
+    if (!e || !e.isValid) {
+      assists.delete(id);
+      continue;
+    }
+    const loc = e.location;
+    const tx = dest.x + 0.5;
+    const tz = dest.z + 0.5;
+    const d = Math.hypot(tx - loc.x, tz - loc.z);
+    if (d < 1.0) {
+      assists.delete(id);
+      continue;
+    }
+    const step = Math.min(ASSIST_SPEED, d);
+    const nx = loc.x + ((tx - loc.x) / d) * step;
+    const nz = loc.z + ((tz - loc.z) / d) * step;
+    const bx = Math.floor(nx);
+    const bz = Math.floor(nz);
+    const by = Math.floor(loc.y + 0.01);
+    let ny;
+    // 1段までなら登る・3段までなら下りる
+    for (const dy of [0, 1, -1, -2, -3]) {
+      if (canStand(e.dimension, { x: bx, y: by + dy, z: bz })) {
+        ny = by + dy;
+        break;
+      }
+    }
+    if (ny === undefined) {
+      // 壁などで進めない。しばらくすると stuck でワープする
+      assists.delete(id);
+      continue;
+    }
+    try {
+      e.teleport({ x: nx, y: ny === by ? loc.y : ny, z: nz }, { facingLocation: { x: tx, y: ny + 1.6, z: tz } });
+    } catch (err) {
+      assists.delete(id);
+    }
+  }
+}
+
+// ---------------------------------------------------------------
 // 夜・休む・体力の回復
 // ---------------------------------------------------------------
 
@@ -747,11 +832,7 @@ function nightStep(e, st, village, tick, total) {
       st.status = "寝床へ向かっている";
       if (isWatched(e)) markBed(e.dimension, bed);
       const d2 = dist2h(bed.mid, e.location);
-      if (d2 <= 1.8 * 1.8) {
-        sleepOn(e, st, bed, tick);
-      } else if (!isWatched(e) || stuck(e, st, tick, bed.foot)) {
-        sleepOn(e, st, bed, tick);
-      }
+      if (d2 <= 1.8 * 1.8 || travel(e, st, tick, bed.foot, bed.foot)) sleepOn(e, st, bed, tick);
       return true;
     }
     case "sleeping": {
@@ -772,7 +853,7 @@ function nightStep(e, st, village, tick, total) {
       if (dist2h(s, e.location, true) <= 3.5 * 3.5 || !village.storage) {
         setMode(e, st, "resting", tick);
         st.rested = true;
-      } else if (!isWatched(e) || stuck(e, st, tick, s)) {
+      } else if (travel(e, st, tick, s, storageStand(e.dimension, s))) {
         warpTo(e, storageStand(e.dimension, s));
         setMode(e, st, "resting", tick);
         st.rested = true;
@@ -781,6 +862,12 @@ function nightStep(e, st, village, tick, total) {
     }
     case "resting":
       st.status = "休んでいる（ベッドが無い）";
+      // 新しくベッドが置かれていないか、ときどき確かめる
+      if (tick - st.anchorTick > 200) {
+        st.anchorTick = tick;
+        goRest(e, st, village, tick);
+        if (/** @type {Mode} */ (st.mode) === "to_rest") setMode(e, st, "resting", tick);
+      }
       return true;
   }
   return false;
@@ -883,15 +970,16 @@ function regen(e, st, tick) {
  * @param {State} st
  * @param {number} tick
  * @param {Pos} target ブロック座標
+ * @param {number} [seconds]
  */
-function stuck(e, st, tick, target) {
+function stuck(e, st, tick, target, seconds = STUCK_SECONDS) {
   const d = Math.sqrt(dist2h(target, e.location, true));
   if (d < st.bestDist - 1) {
     st.bestDist = d;
     st.anchorTick = tick;
     return false;
   }
-  if (tick - st.anchorTick > STUCK_SECONDS * 20) {
+  if (tick - st.anchorTick > seconds * 20) {
     st.anchorTick = tick;
     st.bestDist = Infinity;
     return true;

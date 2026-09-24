@@ -2,7 +2,7 @@ import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/serv
 import { STAFF_ID, VILLAGER_ID } from "./core/config.js";
 import { getVillage } from "./core/village.js";
 import { cleanupMarkers, ensureStorageMarker, requestScan } from "./core/tasks.js";
-import { getAllVillagers, getJob, initVillager, noteHurt, tickVillagers } from "./core/villager.js";
+import { getAllVillagers, getJob, initVillager, noteHurt, tickAssist, tickVillagers } from "./core/villager.js";
 import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
 import { syncTickingAreas } from "./core/loading.js";
@@ -140,5 +140,8 @@ system.runInterval(() => {
   // 村の範囲（村レベルで広がる）を読み込み続ける設定を反映
   if (tick % 1200 === 100) syncTickingAreas(village).catch((err) => console.warn(`[blockAI] ticking area: ${err}`));
 }, 10);
+
+// 自力で歩けない村人の手引き（毎tick）
+system.runInterval(tickAssist, 1);
 
 console.log("[blockAI] loaded");

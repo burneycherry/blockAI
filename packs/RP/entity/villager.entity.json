@@ -74,7 +74,7 @@
         "macho": "geometry.blockai.human_macho"
       },
       "scripts": {
-        "scale": "(query.has_property('blockai:build') ? query.property('blockai:build') : 0) == 2 ? 1.0 : 0.9375",
+        "scale": "(query.has_property('blockai:build') ? query.property('blockai:build') : 0) == 2 ? 1.0 : ((query.has_property('blockai:build') ? query.property('blockai:build') : 0) == 1 ? 0.9 : 0.9375)",
         "pre_animation": [
           "v.char = query.has_property('blockai:char') ? query.property('blockai:char') : 0;",
           "v.build = query.has_property('blockai:build') ? query.property('blockai:build') : 0;",
@@ -91,6 +91,9 @@
           },
           {
             "sleep": "v.sleep"
+          },
+          {
+            "slim": "v.build == 1"
           }
         ]
       },
@@ -98,7 +101,8 @@
         "look": "animation.blockai.human.look",
         "walk": "animation.blockai.human.walk",
         "sleep": "animation.blockai.human.sleep",
-        "swing": "animation.blockai.human.swing"
+        "swing": "animation.blockai.human.swing",
+        "slim": "animation.blockai.human.slim"
       },
       "render_controllers": [
         "controller.render.blockai_human"

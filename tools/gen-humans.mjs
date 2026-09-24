@@ -130,6 +130,7 @@ const SWATCH = {
   ironDark: [3, 0, [140, 142, 150]],
   straw: [4, 0, [222, 192, 112]],
   strawDark: [5, 0, [186, 152, 80]],
+  edge: [6, 0, [236, 238, 242]],
 };
 
 // ---------------------------------------------------------------
@@ -151,8 +152,24 @@ function drawCharacter(img, ch, seed) {
   // 顔
   const eyeWhite = [245, 245, 245];
   const brow = ch.style === "bald" ? mul(skin, 0.6) : mul(ch.hair, 0.85);
+  // 女性はアニメ風の顔（大きな瞳・ハイライト・まつげ・小さな口・ほっぺ）
+  const irisDark = mul(ch.eyes, 0.55);
+  const irisLight = mix(ch.eyes, [255, 255, 255], 0.35);
+  if (female) {
+    paint(img, P.head, (f, x, y) => {
+      if (f !== "front") return null;
+      if (y === 3 && (x === 1 || x === 2 || x === 5 || x === 6)) return [42, 30, 34];
+      if (y === 3 && (x === 0 || x === 7)) return null;
+      if (y === 4 && (x === 1 || x === 6)) return x === 1 ? [255, 255, 255] : irisDark;
+      if (y === 4 && (x === 2 || x === 5)) return x === 2 ? irisDark : [255, 255, 255];
+      if (y === 5 && (x === 1 || x === 2 || x === 5 || x === 6)) return x === 1 || x === 6 ? ch.eyes : irisLight;
+      if (y === 6 && (x === 1 || x === 6)) return mix(skin, [245, 120, 135], 0.4);
+      if (y === 6 && x === 4) return [205, 110, 115];
+      return null;
+    });
+  }
   paint(img, P.head, (f, x, y) => {
-    if (f !== "front") return null;
+    if (f !== "front" || female) return null;
     if (y === 4 && (x === 1 || x === 6)) return eyeWhite;
     if (y === 4 && (x === 2 || x === 5)) return ch.eyes;
     if (y === 3 && (x === 1 || x === 2 || x === 5 || x === 6)) return female && (x === 2 || x === 5) ? null : brow;
@@ -422,12 +439,15 @@ const solid = (name) => {
 function human(id, { slim = false, bulk = 0 }) {
   const aw = slim ? 3 : 4;
   const b = bulk; // マッチョは体と腕を膨らませ、腕を外へずらす
-  const armOut = b * 1.6;
-  const rx = -4 - aw - armOut; // 右腕の左端
-  const lx = 4 + armOut;
-  const hx = rx + aw / 2; // 右手の中心
+  // ほっそりは、胴・腕・脚をアニメーション（animation.blockai.human.slim）で細くするので、
+  // 細くなった後の位置に腕と脚を置いておく
+  const armX = slim ? 4.2 : 4 + aw / 2 + b * 1.6; // 腕の中心
+  const legX = slim ? 1.5 : 1.9; // 脚の中心
   const box = (/** @type {number[]} */ origin, /** @type {number[]} */ size, /** @type {number[]} */ uv, inflate = 0) =>
     inflate ? { origin, size, uv, inflate } : { origin, size, uv };
+  /** 手に持つ道具（柄を前に向け、先を少し上げて持つ） @param {string} name @param {any[]} cubes */
+  const tool = (name, cubes) => ({ name, parent: "rightArm", pivot: [-armX, 12.5, 0], rotation: [-20, 0, 0], cubes });
+  const hx = -armX;
   return {
     description: {
       identifier: id,
@@ -440,9 +460,10 @@ function human(id, { slim = false, bulk = 0 }) {
     bones: [
       { name: "root", pivot: [0, 16, 0] },
       { name: "waist", parent: "root", pivot: [0, 12, 0] },
+      { name: "body", parent: "waist", pivot: [0, 24, 0] },
       {
-        name: "body",
-        parent: "waist",
+        name: "torso",
+        parent: "body",
         pivot: [0, 24, 0],
         cubes: [box([-4, 12, -2], [8, 12, 4], [16, 16], b), box([-4, 12, -2], [8, 12, 4], [16, 32], b + 0.25)],
       },
@@ -456,51 +477,56 @@ function human(id, { slim = false, bulk = 0 }) {
         name: "brim",
         parent: "head",
         pivot: [0, 24, 0],
-        cubes: [{ origin: [-6.5, 29.5, -6.5], size: [13, 0.5, 13], uv: solid("straw") }],
+        cubes: [{ origin: [-5.6, 29.6, -5.6], size: [11.2, 0.4, 11.2], uv: solid("straw") }],
       },
       {
         name: "rightArm",
         parent: "body",
-        pivot: [-5 - armOut, 22, 0],
-        cubes: [box([rx, 12, -2], [aw, 12, 4], [40, 16], b), box([rx, 12, -2], [aw, 12, 4], [40, 32], b + 0.25)],
-      },
-      {
-        name: "tool_axe",
-        parent: "rightArm",
-        pivot: [-5 - armOut, 22, 0],
+        pivot: [-armX, 22, 0],
         cubes: [
-          { origin: [hx - 0.5, 12.5, -8], size: [1, 1, 10], uv: solid("wood") },
-          { origin: [hx - 0.5, 13.5, -8.5], size: [1, 3, 2.5], uv: solid("iron") },
-          { origin: [hx - 0.5, 16.5, -8.5], size: [1, 0.5, 2.5], uv: solid("ironDark") },
+          box([-armX - aw / 2, 12, -2], [aw, 12, 4], [40, 16], b),
+          box([-armX - aw / 2, 12, -2], [aw, 12, 4], [40, 32], b + 0.25),
         ],
       },
-      {
-        name: "tool_hoe",
-        parent: "rightArm",
-        pivot: [-5 - armOut, 22, 0],
-        cubes: [
-          { origin: [hx - 0.5, 12.5, -9], size: [1, 1, 11], uv: solid("wood") },
-          { origin: [hx - 0.5, 13.5, -9], size: [1, 1, 2], uv: solid("iron") },
-          { origin: [hx - 0.5, 10.5, -9], size: [1, 2, 1], uv: solid("ironDark") },
-        ],
-      },
+      tool("tool_axe", [
+        { origin: [hx - 0.5, 12, -12], size: [1, 1, 14], uv: solid("wood") },
+        { origin: [hx - 0.7, 11.8, -11.4], size: [1.4, 1.4, 2], uv: solid("ironDark") },
+        { origin: [hx - 0.5, 9.5, -11.6], size: [1, 2.5, 2.4], uv: solid("iron") },
+        { origin: [hx - 0.5, 7.8, -12.2], size: [1, 1.7, 3.6], uv: solid("iron") },
+        { origin: [hx - 0.5, 7.5, -12.2], size: [1, 0.3, 3.6], uv: solid("edge") },
+      ]),
+      tool("tool_hoe", [
+        { origin: [hx - 0.5, 12, -12], size: [1, 1, 14], uv: solid("wood") },
+        { origin: [hx - 0.6, 11.3, -12.1], size: [1.2, 1.4, 1.2], uv: solid("ironDark") },
+        { origin: [hx - 1.4, 8.6, -12.0], size: [2.8, 2.7, 0.6], uv: solid("iron") },
+        { origin: [hx - 1.4, 8.3, -12.0], size: [2.8, 0.3, 0.6], uv: solid("edge") },
+      ]),
       {
         name: "leftArm",
         parent: "body",
-        pivot: [5 + armOut, 22, 0],
-        cubes: [box([lx, 12, -2], [aw, 12, 4], [32, 48], b), box([lx, 12, -2], [aw, 12, 4], [48, 48], b + 0.25)],
+        pivot: [armX, 22, 0],
+        cubes: [
+          box([armX - aw / 2, 12, -2], [aw, 12, 4], [32, 48], b),
+          box([armX - aw / 2, 12, -2], [aw, 12, 4], [48, 48], b + 0.25),
+        ],
       },
       {
         name: "rightLeg",
         parent: "waist",
-        pivot: [-1.9, 12, 0],
-        cubes: [box([-3.9, 0, -2], [4, 12, 4], [0, 16], b * 0.4), box([-3.9, 0, -2], [4, 12, 4], [0, 32], b * 0.4 + 0.25)],
+        pivot: [-legX, 12, 0],
+        cubes: [
+          box([-legX - 2, 0, -2], [4, 12, 4], [0, 16], b * 0.4),
+          box([-legX - 2, 0, -2], [4, 12, 4], [0, 32], b * 0.4 + 0.25),
+        ],
       },
       {
         name: "leftLeg",
         parent: "waist",
-        pivot: [1.9, 12, 0],
-        cubes: [box([-0.1, 0, -2], [4, 12, 4], [16, 48], b * 0.4), box([-0.1, 0, -2], [4, 12, 4], [0, 48], b * 0.4 + 0.25)],
+        pivot: [legX, 12, 0],
+        cubes: [
+          box([legX - 2, 0, -2], [4, 12, 4], [16, 48], b * 0.4),
+          box([legX - 2, 0, -2], [4, 12, 4], [0, 48], b * 0.4 + 0.25),
+        ],
       },
     ],
   };
@@ -547,6 +573,18 @@ writeJson("packs/RP/animations/human.animation.json", {
           },
         },
         body: { rotation: { "0.0": [0, 0, 0], "0.12": [0, -12, 0], "0.3": [0, 8, 0], "0.45": [0, 0, 0] } },
+      },
+    },
+    // ほっそり体型：胴・腕・脚を細くし、頭を少し大きく（アニメ風）
+    "animation.blockai.human.slim": {
+      loop: true,
+      bones: {
+        torso: { scale: [0.75, 1, 0.8] },
+        rightArm: { scale: [0.8, 1, 0.8] },
+        leftArm: { scale: [0.8, 1, 0.8] },
+        rightLeg: { scale: [0.75, 1, 0.8] },
+        leftLeg: { scale: [0.75, 1, 0.8] },
+        head: { scale: 1.08 },
       },
     },
     // ベッドで寝る（体の中心を軸に横にする）
@@ -606,7 +644,7 @@ writeJson("packs/RP/entity/villager.entity.json", {
         macho: "geometry.blockai.human_macho",
       },
       scripts: {
-        scale: `(${prop("build")}) == 2 ? 1.0 : 0.9375`,
+        scale: `(${prop("build")}) == 2 ? 1.0 : ((${prop("build")}) == 1 ? 0.9 : 0.9375)`,
         pre_animation: [
           `v.char = ${prop("char")};`,
           `v.build = ${prop("build")};`,
@@ -614,13 +652,14 @@ writeJson("packs/RP/entity/villager.entity.json", {
           `v.sleep = (${prop("pose")}) == 1;`,
           "v.tcos0 = math.cos(query.modified_distance_moved * 38.17) * math.min(query.modified_move_speed, 1.0) * 57.3;",
         ],
-        animate: [{ look: "!v.sleep" }, { walk: "!v.sleep" }, { sleep: "v.sleep" }],
+        animate: [{ look: "!v.sleep" }, { walk: "!v.sleep" }, { sleep: "v.sleep" }, { slim: "v.build == 1" }],
       },
       animations: {
         look: "animation.blockai.human.look",
         walk: "animation.blockai.human.walk",
         sleep: "animation.blockai.human.sleep",
         swing: "animation.blockai.human.swing",
+        slim: "animation.blockai.human.slim",
       },
       render_controllers: ["controller.render.blockai_human"],
       spawn_egg: { base_color: "#56a152", overlay_color: "#f2c14e" },

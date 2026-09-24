@@ -102,6 +102,49 @@
         }
       }
     },
+    "animation.blockai.human.slim": {
+      "loop": true,
+      "bones": {
+        "torso": {
+          "scale": [
+            0.75,
+            1,
+            0.8
+          ]
+        },
+        "rightArm": {
+          "scale": [
+            0.8,
+            1,
+            0.8
+          ]
+        },
+        "leftArm": {
+          "scale": [
+            0.8,
+            1,
+            0.8
+          ]
+        },
+        "rightLeg": {
+          "scale": [
+            0.75,
+            1,
+            0.8
+          ]
+        },
+        "leftLeg": {
+          "scale": [
+            0.75,
+            1,
+            0.8
+          ]
+        },
+        "head": {
+          "scale": 1.08
+        }
+      }
+    },
     "animation.blockai.human.sleep": {
       "loop": true,
       "bones": {
