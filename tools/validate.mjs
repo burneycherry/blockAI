@@ -46,6 +46,13 @@ for (const dep of bp.dependencies) {
   if (dep.uuid && dep.uuid !== rp.header.uuid) fail("BP が参照する RP の uuid が違います");
 }
 
+// バージョンを上げ忘れると、iPhone で読み込み直しても古いパックのままになる
+const ver = bp.header.version.join(".");
+if (rp.header.version.join(".") !== ver) fail("BP と RP の version が違います");
+if (pkg.version !== ver) fail(`package.json の version (${pkg.version}) と manifest (${ver}) が違います`);
+const cfg = readFileSync("packs/BP/scripts/config.js", "utf8");
+if (!cfg.includes(`VERSION = "${ver}"`)) fail("config.js の VERSION が manifest と違います");
+
 if (errors > 0) {
   console.error(`${errors} 件の問題があります`);
   process.exit(1);

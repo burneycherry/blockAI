@@ -1,6 +1,6 @@
 import { system } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { JOBS, LEVEL_XP, MAX_VILLAGERS, VILLAGER_ID, carryCapacity } from "./config.js";
+import { JOBS, LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity } from "./config.js";
 import { foundVillage, getVillage, setStorage } from "./village.js";
 import { clearAllTasks, ensureStorageMarker } from "./tasks.js";
 import {
@@ -93,7 +93,7 @@ export async function openMainMenu(player) {
   ].join("\n");
 
   const form = new ActionFormData()
-    .title("村長メニュー")
+    .title(`村長メニュー v${VERSION}`)
     .body(body)
     .button("村人を雇う")
     .button("村人の一覧")

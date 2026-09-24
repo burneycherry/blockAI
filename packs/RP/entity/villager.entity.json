@@ -79,9 +79,9 @@
         { "raise_arms": "controller.animation.villager_v2.raise_arms" }
       ],
       "render_controllers": [
-        "controller.render.villager_v3_base",
-        "controller.render.villager_v3_masked",
-        "controller.render.villager_v3_level"
+        "controller.render.blockai_villager_base",
+        "controller.render.blockai_villager_masked",
+        "controller.render.blockai_villager_level"
       ],
       "spawn_egg": {
         "base_color": "#56a152",
