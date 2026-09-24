@@ -38,14 +38,21 @@ jobs:
           path: dist/blockAI.mcaddon
 
       # iPhone の Safari から直接ダウンロードできるように Release に置く
+      # （Release が手で編集・作り直しされていても、ファイルを必ず置き直す）
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="latest-$(echo "${GITHUB_REF_NAME}" | tr '/' '-')"
-          gh release delete "$TAG" --yes --cleanup-tag || true
-          gh release create "$TAG" dist/blockAI.mcaddon \
-            --target "$GITHUB_SHA" \
-            --prerelease \
-            --title "blockAI (${GITHUB_REF_NAME})" \
-            --notes "ブランチ ${GITHUB_REF_NAME} の最新ビルド (${GITHUB_SHA::7})。iPhone では blockAI.mcaddon をタップして「Minecraft で開く」。"
+          VERSION="$(node -p "require('./package.json').version")"
+          TITLE="blockAI v${VERSION} (${GITHUB_REF_NAME})"
+          NOTES="ブランチ ${GITHUB_REF_NAME} の最新ビルド v${VERSION} (${GITHUB_SHA::7})。iPhone では下の Assets にある blockAI.mcaddon をタップして「Minecraft で開く」。"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            git push -f origin "HEAD:refs/tags/$TAG"
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
+            gh release upload "$TAG" dist/blockAI.mcaddon --clobber
+          else
+            gh release create "$TAG" dist/blockAI.mcaddon \
+              --target "$GITHUB_SHA" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx 'blockAI.mcaddon'
