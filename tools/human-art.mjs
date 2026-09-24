@@ -307,56 +307,105 @@ export function drawCharacter(img, ch, seed) {
     return mul(c, 0.99 + hash(x, y, seed + 3) * 0.02);
   });
 
-  // 顔のパーツ
-  const sclera = [236, 234, 228];
+  // 顔のパーツ（目・眉・口は一人ずつ違う。ch.face で決める）
+  const fc = ch.face;
+  const sclera = [242, 240, 236];
   const iris = ch.eyes;
-  const brow = ch.style === "bald" ? mul(skin, 0.5) : mul(ch.hair, old ? 0.8 : 0.72);
-  const lipUp = mix(skin, [168, 78, 76], female ? 0.5 : 0.3);
-  const lipLow = mix(skin, [206, 112, 112], female ? 0.5 : 0.25);
-  const lash = [40, 28, 26];
+  const pupil = [26, 20, 20];
+  const brow = ch.style === "bald" ? mul(skin, 0.5) : mul(ch.hair, old ? 0.82 : 0.7);
+  const lid = female ? [44, 30, 28] : mix(skin, [60, 40, 32], 0.7);
+  const lip = mix(skin, female ? [200, 90, 100] : [150, 72, 66], female ? 0.55 : 0.45);
+  const lipLight = mix(skin, [214, 124, 122], female ? 0.45 : 0.25);
+  const teeth = [246, 244, 238];
+  /** 目の1マス（mx: 目の中の位置 0〜3、左目・右目とも左から数える） @returns {Color | null} */
+  const eyePx = (/** @type {number} */ mx, /** @type {number} */ y) => {
+    const ip = 1 + fc.look; // 黒目の左端（目線で左右にずれる）
+    const inIris = mx === ip || mx === ip + 1;
+    const hl = mx === ip; // 黒目の左上に光
+    switch (fc.eye) {
+      case "happy": // にっこり閉じた目（∩）
+        if (y === 8 && (mx === 1 || mx === 2)) return lid;
+        if (y === 9 && (mx === 0 || mx === 3)) return lid;
+        return null;
+      case "sleepy": // まぶたが半分かかる
+        if (y === 8) return mix(lid, skin, 0.25);
+        if (y === 9) return inIris ? (hl ? iris : pupil) : sclera;
+        return null;
+      case "almond": // 切れ長：上まぶたを外へ長く、白目は少なめ
+        if (y === 7 && mx >= 1) return lid;
+        if (y === 8) return inIris ? (hl ? mix(iris, WHITE, 0.55) : pupil) : mx === 0 ? mix(sclera, skin, 0.5) : sclera;
+        if (y === 9 && inIris) return mul(iris, 0.85);
+        return null;
+      case "wide": // ぱっちり：3段
+        if (y === 7) return lid;
+        if (y === 8) return inIris ? (hl ? WHITE : pupil) : sclera;
+        if (y === 9) return inIris ? iris : sclera;
+        if (y === 10 && inIris) return mix(iris, skin, 0.5);
+        return null;
+      default: // round
+        if (y === 7 && mx >= 0) return lid;
+        if (y === 8) return inIris ? (hl ? mix(iris, WHITE, 0.7) : pupil) : sclera;
+        if (y === 9) return inIris ? iris : mx === 0 || mx === 3 ? null : sclera;
+        return null;
+    }
+  };
+  /** 眉（左目側を基準に。mx: 0 = 外側 … 3 = 内側） */
+  const browPx = (/** @type {number} */ mx, /** @type {number} */ y) => {
+    switch (fc.brow) {
+      case "bold":
+        return (y === 5 || y === 6) && mx >= 0 ? (y === 5 ? mix(brow, skin, 0.2) : brow) : null;
+      case "arch":
+        return (y === 5 && (mx === 1 || mx === 2)) || (y === 6 && (mx === 0 || mx === 3)) ? mix(brow, skin, female ? 0.3 : 0.1) : null;
+      case "raised":
+        return y === 5 && mx >= 0 ? mix(brow, skin, female ? 0.3 : 0.1) : null;
+      case "kind": // 内側が上がった下がり眉
+        return (y === 5 && mx >= 2) || (y === 6 && mx <= 1) ? mix(brow, skin, female ? 0.3 : 0.1) : null;
+      default:
+        return y === 6 && mx >= 0 ? mix(brow, skin, female ? 0.3 : 0.05) : null;
+    }
+  };
   paint(img, P.head, (f, x, y, W, H, side) => {
     if (f !== "front" || mask(f, x, y, side)) return null;
-    // 左右の目（mx: 目の中の位置 0〜3。0 = 外側）
-    const eyeL = x >= 3 && x <= 6;
-    const eyeR = x >= 9 && x <= 12;
-    const mx = eyeL ? x - 3 : eyeR ? 12 - x : -1;
-    // 眉
-    if (female) {
-      // 細く弧を描く眉
-      if (y === 5 && mx >= 1) return mix(brow, skin, mx === 3 ? 0.55 : 0.35);
-      if (y === 6 && mx === 0) return mix(brow, skin, 0.5);
-    } else {
-      if (y === 6 && mx >= 0) return brow;
-      if (y === 5 && mx >= 1) return mix(brow, skin, 0.35);
-      if (y === 6 && (x === 2 || x === 13)) return mix(brow, skin, 0.5);
+    // 目（左目 x3〜6、右目 x9〜12。目線は両目とも同じ向き）
+    const inL = x >= 3 && x <= 6;
+    const inR = x >= 9 && x <= 12;
+    if ((inL || inR) && y >= 7 && y <= 10) {
+      const c = eyePx(inL ? x - 3 : x - 9, y);
+      if (c) return c;
     }
-    // まぶた・目
-    if (y === 7 && mx >= 0) return female ? (mx === 3 ? mix(lash, skin, 0.5) : lash) : mix(skin, deep, 0.7);
-    if (female && y === 7 && (x === 2 || x === 13)) return mix(lash, skin, 0.3);
-    if (y === 8 && mx >= 0) {
-      if (mx === 0) return mix(sclera, shadow, 0.25);
-      if (mx === 3) return mix(sclera, shadow, 0.1);
-      return mx === 1 ? mix(iris, WHITE, 0.15) : mul(iris, 0.45); // 瞳（内側が暗い＝瞳孔）
+    // 女性は目じりにまつ毛
+    if (female && fc.eye !== "happy" && y === 7 && (x === 2 || x === 13)) return lid;
+    // 眉（左右対称）
+    if ((inL || inR) && (y === 5 || y === 6)) {
+      const c = browPx(inL ? x - 3 : 12 - x, y);
+      if (c) return c;
     }
-    if (y === 9 && mx >= 0) {
-      if (mx === 0 || mx === 3) return mix(skin, shadow, 0.45);
-      return mx === 1 ? iris : mul(iris, 0.7);
-    }
-    if (y === 10 && mx >= 0 && mx <= 2) return mix(skin, shadow, 0.25); // 目の下
-    // 鼻
-    if (x === 7 && y >= 8 && y <= 10) return mix(skin, light, 0.35);
-    if (x === 8 && y >= 9 && y <= 10) return mix(skin, shadow, female ? 0.3 : 0.5);
-    if (y === 11 && (x === 6 || x === 9)) return mix(skin, deep, female ? 0.35 : 0.6);
-    if (y === 11 && (x === 7 || x === 8)) return mix(skin, shadow, 0.2);
-    // ほお（女性は少し血色）
-    if (female && y >= 10 && y <= 11 && ((x >= 2 && x <= 4) || (x >= 11 && x <= 13))) return mix(skin, [236, 130, 130], 0.22);
+    // 鼻（控えめな影だけ）
+    if (x === 8 && y === 10) return mix(skin, shadow, 0.35);
+    if (y === 11 && (x === 7 || x === 8)) return mix(skin, shadow, x === 8 ? 0.4 : 0.2);
+    // ほお
+    if (y >= 10 && y <= 11 && ((x >= 2 && x <= 3) || (x >= 12 && x <= 13))) return mix(skin, [236, 130, 130], female ? 0.24 : 0.08);
     // 口
-    if (y === 12 && x >= 6 && x <= 9) return mix(skin, shadow, 0.2);
-    if (y === 13 && x >= 5 && x <= 10) return x === 5 || x === 10 ? mix(skin, deep, 0.5) : lipUp;
-    if (y === 14 && x >= 6 && x <= 9) return lipLow;
+    switch (fc.mouth) {
+      case "smile":
+        if (y === 13 && x >= 6 && x <= 9) return lip;
+        if (y === 12 && (x === 5 || x === 10)) return lip;
+        break;
+      case "grin":
+        if (y === 12 && x >= 5 && x <= 10) return x === 5 || x === 10 ? lip : mix(lip, skin, 0.3);
+        if (y === 13 && x >= 6 && x <= 9) return teeth;
+        if (y === 14 && x >= 6 && x <= 9) return lipLight;
+        break;
+      case "small":
+        if (y === 13 && (x === 7 || x === 8)) return lip;
+        break;
+      default:
+        if (y === 13 && x >= 6 && x <= 9) return lip;
+        if (y === 14 && x >= 7 && x <= 8) return lipLight;
+    }
     // しわ（年配）
     if (old && y === 3 && x >= 5 && x <= 10 && x % 2 === 0) return mix(skin, shadow, 0.5);
-    if (old && y === 12 && (x === 4 || x === 11)) return mix(skin, shadow, 0.6);
+    if (old && y === 12 && (x === 4 || x === 11)) return mix(skin, shadow, 0.55);
     return null;
   });
 
