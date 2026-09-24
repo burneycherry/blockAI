@@ -8,7 +8,7 @@ Minecraft統合版（Bedrock）用のアドオンです。AI村人に仕事を�
 
 ## インストール（iPhone）
 
-1. GitHubの **Releases** を開き、`latest-...` の中の `blockAI.mcaddon` をタップしてダウンロードします。
+1. GitHubの **Releases** を開き、`latest-...` の中の `blockAI-v<バージョン>.mcaddon` をタップしてダウンロードします。
 2. ダウンロードしたファイルを「Minecraftで開く」と、自動で読み込まれます。
 3. ワールドの設定で、**ビヘイビアパック**に「blockAI 村づくり」を追加します（リソースパックも自動で追加されます）。
 

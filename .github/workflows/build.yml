@@ -46,13 +46,17 @@ jobs:
           TAG="latest-$(echo "${GITHUB_REF_NAME}" | tr '/' '-')"
           VERSION="$(node -p "require('./package.json').version")"
           TITLE="blockAI v${VERSION} (${GITHUB_REF_NAME})"
-          NOTES="ブランチ ${GITHUB_REF_NAME} の最新ビルド v${VERSION} (${GITHUB_SHA::7})。iPhone では下の Assets にある blockAI.mcaddon をタップして「Minecraft で開く」。"
+          NOTES="ブランチ ${GITHUB_REF_NAME} の最新ビルド v${VERSION} (${GITHUB_SHA::7})。iPhone/iPad では下の Assets にある blockAI-v${VERSION}.mcaddon をタップして「Minecraft で開く」。"
           if gh release view "$TAG" >/dev/null 2>&1; then
             git push -f origin "HEAD:refs/tags/$TAG"
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --prerelease
-            gh release upload "$TAG" dist/blockAI.mcaddon dist/blockAI-manual.zip --clobber
+            # 古い版のファイルを消す
+            for a in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
+              gh release delete-asset "$TAG" "$a" --yes
+            done
+            gh release upload "$TAG" dist/* --clobber
           else
-            gh release create "$TAG" dist/blockAI.mcaddon dist/blockAI-manual.zip \
+            gh release create "$TAG" dist/* \
               --target "$GITHUB_SHA" --prerelease --title "$TITLE" --notes "$NOTES"
           fi
-          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx 'blockAI.mcaddon'
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx "blockAI-v${VERSION}.mcaddon"

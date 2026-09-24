@@ -22,7 +22,7 @@
           ]
         }
       },
-      "geometry": "query.is_baby ? Geometry.baby : Geometry.default",
+      "geometry": "Geometry.default",
       "materials": [
         {
           "*": "Material.default"
@@ -72,7 +72,7 @@
           ]
         }
       },
-      "geometry": "query.is_baby ? Geometry.baby : Geometry.default",
+      "geometry": "Geometry.default",
       "materials": [
         {
           "*": "(query.is_baby || variable.profession_index == 0) ? Material.default : Material.masked"

@@ -56,8 +56,7 @@
         "level_diamond": "textures/entity/villager2/levels/level_diamond"
       },
       "geometry": {
-        "default": "geometry.villager_v2",
-        "baby": "geometry.villager.baby"
+        "default": "geometry.villager_v2"
       },
       "scripts": {
         "scale": "0.9375",
