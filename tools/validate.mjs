@@ -36,6 +36,14 @@ for (const f of files.filter((f) => f.endsWith(".js"))) {
   }
 }
 
+// Minecraft がコンテンツログで出したエラーの再発防止
+for (const f of files.filter((f) => f.startsWith(join("packs", "RP", "entity")))) {
+  const d = JSON.parse(readFileSync(f, "utf8"))["minecraft:client_entity"]?.description;
+  if (!d) continue;
+  if (d.animation_controllers) fail(`${f}: animation_controllers は使えません（animations + scripts.animate を使う）`);
+  if (!Array.isArray(d.render_controllers) || d.render_controllers.length === 0) fail(`${f}: render_controllers が空です`);
+}
+
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const bp = JSON.parse(readFileSync("packs/BP/manifest.json", "utf8"));
 const rp = JSON.parse(readFileSync("packs/RP/manifest.json", "utf8"));

@@ -110,6 +110,22 @@
       "textures": [
         "Array.levels[variable.level_index]"
       ]
+    },
+    "controller.render.blockai_invisible": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ],
+      "part_visibility": [
+        {
+          "*": false
+        }
+      ]
     }
   }
 }

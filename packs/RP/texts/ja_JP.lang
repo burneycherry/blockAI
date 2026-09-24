@@ -1,4 +1,4 @@
-pack.name=blockAI 村づくり v0.3.1 (リソース)
+pack.name=blockAI 村づくり v0.3.2 (リソース)
 pack.description=AI村人に仕事を任せて村を発展させよう
 entity.blockai:villager.name=AI村人
 item.spawn_egg.entity.blockai:villager.name=AI村人のスポーンエッグ

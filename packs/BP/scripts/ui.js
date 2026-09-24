@@ -197,7 +197,12 @@ export async function openVillagerMenu(player, v) {
       await rename(player, v);
       break;
     case 2:
-      v.teleport(player.location, { dimension: player.dimension });
+    {
+      // プレイヤーに重ならないよう、目の前2ブロックに呼ぶ
+      const dir = player.getViewDirection();
+      const to = { x: player.location.x + dir.x * 2, y: player.location.y, z: player.location.z + dir.z * 2 };
+      v.teleport(to, { dimension: player.dimension, facingLocation: player.location });
+    }
       player.sendMessage(`§a[blockAI] ${getName(v)} を呼びました。`);
       break;
     case 3:

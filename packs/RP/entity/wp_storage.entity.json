@@ -3,10 +3,18 @@
   "minecraft:client_entity": {
     "description": {
       "identifier": "blockai:wp_storage",
-      "materials": { "default": "entity_alphatest" },
-      "textures": { "default": "textures/misc/missing_texture" },
-      "geometry": { "default": "geometry.humanoid" },
-      "render_controllers": []
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/villager2/villager"
+      },
+      "geometry": {
+        "default": "geometry.villager_v2"
+      },
+      "render_controllers": [
+        "controller.render.blockai_invisible"
+      ]
     }
   }
 }
