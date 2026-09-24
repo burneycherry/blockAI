@@ -94,7 +94,15 @@ world.afterEvents.entitySpawn.subscribe((ev) => {
 // 村人がダメージを受けた・倒れた
 world.afterEvents.entityHurt.subscribe(
   (ev) => {
-    if (ev.hurtEntity.isValid) noteHurt(ev.hurtEntity, tick);
+    const e = ev.hurtEntity;
+    if (!e.isValid) return;
+    // プレイヤー（村長の杖など）からのダメージは無かったことにする
+    if (ev.damageSource.damagingEntity?.typeId === "minecraft:player") {
+      const h = e.getComponent("minecraft:health");
+      if (h && h.currentValue > 0) h.setCurrentValue(Math.min(h.effectiveMax, h.currentValue + ev.damage));
+      return;
+    }
+    noteHurt(e, tick);
   },
   { entityTypes: [VILLAGER_ID] },
 );

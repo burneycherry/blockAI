@@ -650,6 +650,10 @@
           {
             "cause": "fall",
             "deals_damage": "no"
+          },
+          {
+            "cause": "suffocation",
+            "deals_damage": "no"
           }
         ]
       },

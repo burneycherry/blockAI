@@ -136,17 +136,17 @@ function human(id, { slim = false, bulk = 0 }) {
         { origin: [hx - 0.35, 7.6, -12.6], size: [0.7, 1, 4], uv: solid("steel") },
         { origin: [hx - 0.4, 7.2, -12.6], size: [0.8, 0.4, 4], uv: solid("edge") },
       ]),
-      // 鎌：白木の柄・黒い口金・内側に刃のある曲がった刃
+      // 鎌：白木の柄・黒い口金・下へ伸びて手前に曲がる刃（斧と同じく縦向き。内側が刃）
       tool("tool_sickle", [
         { origin: [hx - 0.5, 12, -8], size: [1, 1, 10], uv: solid("woodLight") },
         { origin: [hx - 0.6, 11.9, -9], size: [1.2, 1.2, 1.2], uv: solid("ferrule") },
-        { origin: [hx + 0.4, 12.2, -9.2], size: [2.2, 0.4, 0.9], uv: solid("steelDark") },
-        { origin: [hx + 2.4, 12.2, -9.0], size: [1.8, 0.4, 1.0], uv: solid("steel") },
-        { origin: [hx + 4.0, 12.2, -8.4], size: [1.4, 0.4, 1.1], uv: solid("steel") },
-        { origin: [hx + 5.1, 12.2, -7.4], size: [0.9, 0.4, 1.2], uv: solid("steel") },
-        { origin: [hx + 5.6, 12.2, -6.3], size: [0.6, 0.4, 0.9], uv: solid("edge") },
-        { origin: [hx + 2.4, 12.2, -8.1], size: [1.8, 0.4, 0.3], uv: solid("edge") },
-        { origin: [hx + 4.0, 12.2, -7.4], size: [1.2, 0.4, 0.3], uv: solid("edge") },
+        { origin: [hx - 0.2, 9.6, -9.2], size: [0.4, 2.2, 0.9], uv: solid("steelDark") },
+        { origin: [hx - 0.2, 8.0, -9.0], size: [0.4, 1.8, 1.0], uv: solid("steel") },
+        { origin: [hx - 0.2, 6.8, -8.4], size: [0.4, 1.4, 1.1], uv: solid("steel") },
+        { origin: [hx - 0.2, 6.2, -7.4], size: [0.4, 0.9, 1.2], uv: solid("steel") },
+        { origin: [hx - 0.2, 6.0, -6.3], size: [0.4, 0.6, 0.9], uv: solid("edge") },
+        { origin: [hx - 0.2, 8.0, -8.1], size: [0.4, 1.8, 0.3], uv: solid("edge") },
+        { origin: [hx - 0.2, 7.0, -7.4], size: [0.4, 1.2, 0.3], uv: solid("edge") },
       ]),
       {
         name: "leftArm",

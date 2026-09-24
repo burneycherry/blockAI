@@ -1,4 +1,4 @@
-import { system } from "@minecraft/server";
+import { system, world } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity, workInterval } from "./config.js";
 import { PLANNED_JOBS, allJobs, getJobDef, workingJobs } from "./registry.js";
@@ -134,7 +134,7 @@ export async function openMainMenu(player) {
       }`;
     })(),
     `中心: ${village.center.x}, ${village.center.y}, ${village.center.z}`,
-    `倉庫: ${s ? `${s.x}, ${s.y}, ${s.z}` : "§c未登録§r"}`,
+    `倉庫: ${s ? `${s.x}, ${s.y}, ${s.z}${storageSpace(player, s)}` : "§c未登録§r"}`,
   ].join("\n");
 
   const form = new ActionFormData()
@@ -175,6 +175,21 @@ export async function openMainMenu(player) {
     case 7:
       await villageSettings(player);
       break;
+  }
+}
+
+/**
+ * 倉庫の空き（例: 「（空き 12 / 54 マス）」）。読み込まれていなければ空文字
+ * @param {Player} player
+ * @param {{x:number,y:number,z:number}} s
+ */
+function storageSpace(player, s) {
+  try {
+    const v = getVillage();
+    const c = v ? world.getDimension(v.dim).getBlock(s)?.getComponent("minecraft:inventory")?.container : undefined;
+    return c ? `（空き ${c.emptySlotsCount} / ${c.size} マス）` : "";
+  } catch (err) {
+    return "";
   }
 }
 

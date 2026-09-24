@@ -896,12 +896,12 @@ function goRest(e, st, village, tick) {
 }
 
 /**
- * ベッドの頭側を向いたときの向き（度）
+ * 寝るときの体の向き（度）。モデルは向いている方と逆側に頭が来るので、足側を向かせる
  * @param {import("./beds.js").Bed} bed
  */
 function bedYaw(bed) {
-  const dx = bed.head.x - bed.foot.x;
-  const dz = bed.head.z - bed.foot.z;
+  const dx = bed.foot.x - bed.head.x;
+  const dz = bed.foot.z - bed.head.z;
   return (Math.atan2(-dx, dz) * 180) / Math.PI;
 }
 

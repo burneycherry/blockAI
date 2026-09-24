@@ -23,8 +23,31 @@ export function safeBlock(dim, p) {
   }
 }
 
+/** 通り抜けられる（体が入ってもよい）ブロック */
+const PASSABLE = new Set([
+  "minecraft:snow_layer",
+  "minecraft:short_grass",
+  "minecraft:tall_grass",
+  "minecraft:fern",
+  "minecraft:large_fern",
+  "minecraft:deadbush",
+  "minecraft:vine",
+  "minecraft:glow_lichen",
+  "minecraft:pink_petals",
+]);
+
 /**
- * 村人が立てる場所か（足元が固く、体の2マスが空いている）
+ * 空気・雪の層・草花など、歩いて通れるブロックか
+ * @param {import("@minecraft/server").Block} b
+ */
+export function isPassable(b) {
+  if (b.isAir) return true;
+  const id = b.typeId;
+  return PASSABLE.has(id) || id.endsWith("_sapling") || id.endsWith("_tulip") || id.includes("flower") || id.endsWith("_mushroom");
+}
+
+/**
+ * 村人が立てる場所か（足元が固く、体の2マスが通れる。葉っぱの上には立たない）
  * @param {Dimension} dim
  * @param {Pos} p
  */
@@ -33,7 +56,8 @@ export function canStand(dim, p) {
   const head = safeBlock(dim, { x: p.x, y: p.y + 1, z: p.z });
   const floor = safeBlock(dim, { x: p.x, y: p.y - 1, z: p.z });
   if (!feet || !head || !floor) return false;
-  return feet.isAir && head.isAir && !floor.isAir && !floor.isLiquid;
+  if (floor.isLiquid || isPassable(floor) || floor.typeId.includes("leaves")) return false;
+  return isPassable(feet) && isPassable(head);
 }
 
 /**
