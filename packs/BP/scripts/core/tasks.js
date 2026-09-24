@@ -145,6 +145,18 @@ export function takeBlock(task) {
   return p;
 }
 
+/**
+ * 条件に合うブロックをまとめて取り出す（範囲作業の特技などで使う）
+ * @param {Task} task
+ * @param {(p: Pos) => boolean} pred
+ */
+export function takeBlocksWhere(task, pred) {
+  const taken = task.blocks.filter(pred);
+  task.blocks = task.blocks.filter((p) => !pred(p));
+  for (const p of taken) claimed.delete(key(p));
+  return taken;
+}
+
 /** @param {string} jobId */
 export function countTasks(jobId) {
   let n = 0;

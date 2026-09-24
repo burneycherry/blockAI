@@ -1,7 +1,7 @@
 // 農家（農業パック予定）: 実った作物を収穫して植え直す。空いている畑には倉庫の種をまく
 import { registerJob } from "../core/registry.js";
 import { addCarry, center, dist2, lookAt, safeBlock } from "../core/blocks.js";
-import { takeBlock, tasks } from "../core/tasks.js";
+import { takeBlock, takeBlocksWhere, tasks } from "../core/tasks.js";
 
 /** 収穫できる作物: 収穫物と種 */
 /** @type {Record<string, { item: string, min: number, max: number, seed: string }>} */
@@ -67,9 +67,17 @@ const GREEN_GROWTH = 3;
  * @param {import("../core/registry.js").WorkContext} ctx
  */
 function harvestOne(ctx) {
-  const { e, task, carry, watched } = ctx;
-  const p = takeBlock(task);
-  if (!p) return false;
+  const p = takeBlock(ctx.task);
+  return p ? harvestAt(ctx, p) : false;
+}
+
+/**
+ * 指定した場所の作物を収穫して、すぐに植え直す
+ * @param {import("../core/registry.js").WorkContext} ctx
+ * @param {import("../core/registry.js").Pos} p
+ */
+function harvestAt(ctx, p) {
+  const { e, carry, watched } = ctx;
   const dim = e.dimension;
   const b = safeBlock(dim, p);
   if (!b || !isMatureCrop(b)) return false;
@@ -150,7 +158,7 @@ registerJob({
   skills: [
     { id: "bumper", level: 5, name: "豊作", description: "ときどき収穫量が1つ増える（3回に1回くらい）" },
     { id: "green", level: 8, name: "緑の手", description: "植えた作物・植え直した作物が、少し育った状態から始まる" },
-    { id: "sweep", level: 10, name: "一斉収穫", description: "畑の実った作物をまとめて一度に刈り取る" },
+    { id: "sweep", level: 10, name: "一斉収穫", description: "目の前3×3（9マス）の実った作物をまとめて刈り取る" },
   ],
 
   scan(dim, top, addTask, isClaimed) {
@@ -187,10 +195,13 @@ registerJob({
 
   work(ctx) {
     const { e, task, watched } = ctx;
-    // 特技「一斉収穫」: この畑の実った作物をまとめて刈り取る
+    // 特技「一斉収穫」: 次に刈る作物を中心に、目の前3×3（9マス）をまとめて刈り取る
     if (task.data.kind !== "plant" && ctx.skill("sweep")) {
+      const next = task.blocks[task.blocks.length - 1];
+      if (!next) return 0;
+      const area = takeBlocksWhere(task, (p) => Math.abs(p.x - next.x) <= 1 && Math.abs(p.z - next.z) <= 1);
       let n = 0;
-      while (task.blocks.length > 0) n += harvestOne(ctx) ? 1 : 0;
+      for (const p of area) n += harvestAt(ctx, p) ? 1 : 0;
       if (watched && n > 0) {
         e.dimension.playSound("dig.grass", e.location, { volume: 1.5, pitch: 0.8 });
         ctx.wait(20);
