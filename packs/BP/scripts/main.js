@@ -1,9 +1,11 @@
 import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/server";
-import { STAFF_ID, VILLAGER_ID } from "./config.js";
-import { getVillage } from "./village.js";
-import { cleanupMarkers, ensureStorageMarker, requestScan } from "./tasks.js";
-import { getAllVillagers, getJob, initVillager, tickVillagers } from "./villager.js";
-import { openMainMenu, openSoon, openVillagerMenu } from "./ui.js";
+import { STAFF_ID, VILLAGER_ID } from "./core/config.js";
+import { getVillage } from "./core/village.js";
+import { cleanupMarkers, ensureStorageMarker, requestScan } from "./core/tasks.js";
+import { getAllVillagers, getJob, initVillager, tickVillagers } from "./core/villager.js";
+import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
+// 職業の部品を登録する
+import "./jobs/index.js";
 
 /** 同じ操作でメニューが2重に開かないようにする */
 /** @type {Map<string, number>} */
@@ -102,14 +104,8 @@ system.runInterval(() => {
   if (!village) return;
   if (tick % 40 === 0) {
     ensureStorageMarker(village);
-    let tree = false;
-    let crop = false;
-    for (const v of getAllVillagers()) {
-      const j = getJob(v);
-      if (j === "lumberjack") tree = true;
-      if (j === "farmer") crop = true;
-    }
-    requestScan(village, { tree, crop });
+    const active = new Set(getAllVillagers().map((v) => getJob(v).id));
+    requestScan(village, active);
   }
   if (tick % 200 === 0) cleanupMarkers();
 }, 10);

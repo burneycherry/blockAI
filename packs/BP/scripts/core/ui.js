@@ -1,6 +1,7 @@
 import { system } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
-import { JOBS, LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity } from "./config.js";
+import { LEVEL_XP, MAX_VILLAGERS, VERSION, VILLAGER_ID, carryCapacity } from "./config.js";
+import { PLANNED_JOBS, allJobs } from "./registry.js";
 import { foundVillage, getVillage, setStorage } from "./village.js";
 import { clearAllTasks, ensureStorageMarker } from "./tasks.js";
 import {
@@ -79,7 +80,7 @@ export async function openMainMenu(player) {
   /** @type {Record<string, number>} */
   const jobCount = {};
   for (const v of villagers) {
-    const j = JOBS[getJob(v)].name;
+    const j = getJob(v).name;
     jobCount[j] = (jobCount[j] || 0) + 1;
   }
   const jobText = Object.keys(jobCount).map((k) => `${k}:${jobCount[k]}`).join(" / ") || "なし";
@@ -154,7 +155,7 @@ async function openVillagerList(player) {
   for (const v of villagers) {
     const lv = levelOf(getXp(v));
     const status = getStatus(v).replace(/§./g, "");
-    form.button(`${getName(v)}  [${JOBS[getJob(v)].name} Lv${lv}]\n${status}`);
+    form.button(`${getName(v)}  [${getJob(v).name} Lv${lv}]\n${status}`);
   }
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
@@ -174,7 +175,7 @@ export async function openVillagerMenu(player, v) {
   const carry = getCarry(v);
   const body = [
     `名前: §e${getName(v)}§r`,
-    `職業: ${JOBS[getJob(v)].name}`,
+    `職業: ${getJob(v).name}`,
     `レベル: ${lv}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})`,
     `状態: ${getStatus(v) || "-"}`,
     `持ち物 (${carryTotal(carry)} / ${carryCapacity(lv)}):`,
@@ -216,22 +217,27 @@ export async function openVillagerMenu(player, v) {
  * @param {Entity} v
  */
 async function chooseJob(player, v) {
-  const keys = /** @type {(keyof typeof JOBS)[]} */ (Object.keys(JOBS));
+  const jobs = allJobs();
   const form = new ActionFormData().title("職業を選ぶ").body(`${getName(v)} の新しい職業は？`);
-  for (const k of keys) {
-    const j = JOBS[k];
-    form.button(j.implemented ? j.name : `§8${j.name}（準備中）`);
+  for (const j of jobs) {
+    const tag = j.pack === "基本" ? "" : ` §2[${j.pack}]`;
+    form.button(`${j.name}${tag}`);
   }
+  // 今後の職業パックの紹介
+  for (const p of PLANNED_JOBS) form.button(`§8${p.name}（${p.pack}・近日公開）`);
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined || !v.isValid) return;
-  const job = keys[res.selection];
-  if (!JOBS[job].implemented) {
-    player.sendMessage(`§e[blockAI] ${JOBS[job].name} はまだ準備中です。今後のアップデートをお楽しみに！`);
+  const job = jobs[res.selection];
+  if (!job) {
+    const planned = PLANNED_JOBS[res.selection - jobs.length];
+    if (planned) {
+      player.sendMessage(`§e[blockAI] ${planned.name} は「${planned.pack}」で追加予定です。お楽しみに！`);
+    }
     return;
   }
-  setJob(v, job);
-  player.sendMessage(`§a[blockAI] ${getName(v)} は ${JOBS[job].name} になりました。`);
-  if (job !== "none" && !getVillage()?.storage) {
+  setJob(v, job.id);
+  player.sendMessage(`§a[blockAI] ${getName(v)} は ${job.name} になりました。§7${job.description}`);
+  if (job.work && !getVillage()?.storage) {
     player.sendMessage("§e[blockAI] ヒント: 倉庫を登録すると、集めた物をチェストに運んでくれます。");
   }
 }

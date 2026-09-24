@@ -1,7 +1,6 @@
 import { ItemStack, world } from "@minecraft/server";
 import {
   ARRIVE_DISTANCE,
-  JOBS,
   LEVEL_XP,
   STUCK_SECONDS,
   VIEW_DISTANCE,
@@ -11,19 +10,9 @@ import {
   workInterval,
 } from "./config.js";
 import { addStat, getVillage } from "./village.js";
-import {
-  CROPS,
-  canStand,
-  dist2h,
-  isLog,
-  nearestTask,
-  refreshStorageMarker,
-  removeTask,
-  replant,
-  safeBlock,
-  tasks,
-  unclaim,
-} from "./tasks.js";
+import { nearestTask, refreshStorageMarker, removeTask, tasks } from "./tasks.js";
+import { canStand, dist2h, safeBlock } from "./blocks.js";
+import { getJobDef } from "./registry.js";
 
 /**
  * @typedef {import("@minecraft/server").Entity} Entity
@@ -54,10 +43,13 @@ export function getName(e) {
   return typeof n === "string" ? n : "名無し";
 }
 
-/** @param {Entity} e */
+/**
+ * 職業の定義（登録されていない職業なら無職）
+ * @param {Entity} e
+ */
 export function getJob(e) {
   const j = e.getDynamicProperty("blockai:job");
-  return typeof j === "string" && j in JOBS ? /** @type {keyof typeof JOBS} */ (j) : "none";
+  return getJobDef(typeof j === "string" ? j : "none");
 }
 
 /** @param {Entity} e */
@@ -128,10 +120,10 @@ export function initVillager(e) {
 
 /**
  * @param {Entity} e
- * @param {keyof typeof JOBS} job
+ * @param {string} jobId
  */
-export function setJob(e, job) {
-  e.setDynamicProperty("blockai:job", job);
+export function setJob(e, jobId) {
+  e.setDynamicProperty("blockai:job", jobId);
   applyLooks(e);
   const st = states.get(e.id);
   if (st) {
@@ -153,7 +145,7 @@ export function setName(e, name) {
 /** 職業とレベルを見た目に反映 @param {Entity} e */
 function applyLooks(e) {
   try {
-    e.setProperty("blockai:job", JOBS[getJob(e)].skin);
+    e.setProperty("blockai:job", getJob(e).skin);
     e.setProperty("blockai:tier", Math.min(4, levelOf(getXp(e)) - 1));
   } catch (err) {
     // 読み込み直後などは失敗することがある
@@ -165,7 +157,7 @@ function applyLooks(e) {
  * @param {string} status
  */
 function updateNameTag(e, status) {
-  const job = JOBS[getJob(e)];
+  const job = getJob(e);
   const lv = levelOf(getXp(e));
   const head = `§e${getName(e)}§r §7[${job.name} Lv${lv}]§r`;
   const tag = status ? `${head}\n§f${status}` : head;
@@ -211,7 +203,8 @@ function setMode(e, st, mode, tick) {
   }[mode];
   let event = ev;
   if (mode === "to_task") {
-    event = getJob(e) === "lumberjack" ? "blockai:mode_to_tree" : "blockai:mode_to_crop";
+    // 職業ごとの枠のマーカーを追いかける
+    event = `blockai:mode_to_slot_${getJob(e).slot ?? 0}`;
   }
   if (st.event !== event) {
     st.event = event;
@@ -263,18 +256,6 @@ function storageStand(dim, s) {
 }
 
 /**
- * 仕事の種類
- * @param {Entity} e
- * @returns {"tree"|"crop"|undefined}
- */
-function taskKind(e) {
-  const job = getJob(e);
-  if (job === "lumberjack") return "tree";
-  if (job === "farmer") return "crop";
-  return undefined;
-}
-
-/**
  * 全村人の1ステップ（0.5秒ごと）
  * @param {number} tick
  */
@@ -316,17 +297,18 @@ export function tickVillagers(tick) {
  * @param {number} tick
  */
 function step(e, st, village, tick) {
-  const kind = taskKind(e);
+  const job = getJob(e);
   if (!village || village.dim !== e.dimension.id) {
     setMode(e, st, "idle", tick);
     st.status = village ? "村から遠く離れている" : "村がまだありません";
     return;
   }
-  if (!kind) {
+  if (!job.work || !job.status) {
     setMode(e, st, "idle", tick);
-    st.status = getJob(e) === "none" ? "のんびり中" : "（この職業は準備中）";
+    st.status = "のんびり中";
     return;
   }
+  const status = job.status;
 
   const level = levelOf(getXp(e));
   const cap = carryCapacity(level);
@@ -335,24 +317,24 @@ function step(e, st, village, tick) {
 
   switch (st.mode) {
     case "idle":
-      decide(e, st, village, tick, kind, total, cap);
+      decide(e, st, village, tick, job, total, cap);
       return;
 
     case "to_task": {
-      const task = nearestTask(kind, e.dimension.id, e.location);
+      const task = nearestTask(job.id, e.dimension.id, e.location);
       if (!task) {
-        decide(e, st, village, tick, kind, total, cap);
+        decide(e, st, village, tick, job, total, cap);
         return;
       }
-      const near = nearestTask(kind, e.dimension.id, e.location, ARRIVE_DISTANCE);
+      const near = nearestTask(job.id, e.dimension.id, e.location, ARRIVE_DISTANCE);
       if (near) {
         st.taskId = near.id;
         setMode(e, st, "working", tick);
         st.nextWork = tick + 10;
-        st.status = kind === "tree" ? "伐採中" : "収穫中";
+        st.status = status.working;
         return;
       }
-      st.status = kind === "tree" ? "木を切りに向かっている" : "畑に向かっている";
+      st.status = status.going;
       // 見られていない、または立ち往生しているならワープ
       if (!isWatched(e) || stuck(e, st, tick)) {
         warpTo(e, task.stand);
@@ -365,7 +347,7 @@ function step(e, st, village, tick) {
       if (!task || task.blocks.length === 0) {
         if (task) removeTask(task.id);
         releaseTask(st);
-        decide(e, st, village, tick, kind, total, cap);
+        decide(e, st, village, tick, job, total, cap);
         return;
       }
       if (total >= cap) {
@@ -379,7 +361,7 @@ function step(e, st, village, tick) {
       let units = watched ? 1 : cap - total;
       let got = 0;
       while (units > 0 && task.blocks.length > 0) {
-        if (doWorkUnit(e, task, carry, watched)) {
+        if (job.work(e, task, carry, watched)) {
           got++;
           units--;
         }
@@ -387,7 +369,7 @@ function step(e, st, village, tick) {
       setCarry(e, carry);
       if (got > 0) gainXp(e, got);
       st.nextWork = tick + workInterval(level);
-      st.status = `${kind === "tree" ? "伐採中" : "収穫中"} (${carryTotal(carry)}/${cap})`;
+      st.status = `${status.working} (${carryTotal(carry)}/${cap})`;
       return;
     }
 
@@ -430,7 +412,7 @@ function step(e, st, village, tick) {
         return;
       }
       setMode(e, st, "idle", tick);
-      decide(e, st, village, tick, kind, 0, cap);
+      decide(e, st, village, tick, job, 0, cap);
       return;
     }
   }
@@ -442,16 +424,16 @@ function step(e, st, village, tick) {
  * @param {State} st
  * @param {import("./village.js").VillageData} village
  * @param {number} tick
- * @param {"tree"|"crop"} kind
+ * @param {import("./registry.js").JobDef} job
  * @param {number} total
  * @param {number} cap
  */
-function decide(e, st, village, tick, kind, total, cap) {
+function decide(e, st, village, tick, job, total, cap) {
   if (total >= cap) {
     goStorage(e, st, village, tick);
     return;
   }
-  const task = nearestTask(kind, e.dimension.id, e.location);
+  const task = nearestTask(job.id, e.dimension.id, e.location);
   if (task) {
     setMode(e, st, "to_task", tick);
     return;
@@ -461,7 +443,7 @@ function decide(e, st, village, tick, kind, total, cap) {
     return;
   }
   setMode(e, st, "idle", tick);
-  st.status = kind === "tree" ? "切れる木を探している" : "実った作物を待っている";
+  st.status = job.status?.waiting ?? "";
   // 村から離れすぎていたら戻る
   const c = village.center;
   const d2 = dist2h(c, e.location, true);
@@ -507,62 +489,6 @@ function stuck(e, st, tick) {
 }
 
 /**
- * 1ブロック分の作業をする。成功したら true
- * @param {Entity} e
- * @param {import("./tasks.js").Task} task
- * @param {Record<string, number>} carry
- * @param {boolean} watched
- */
-function doWorkUnit(e, task, carry, watched) {
-  const p = /** @type {Pos} */ (task.blocks.pop());
-  unclaim(p);
-  const dim = e.dimension;
-  const b = safeBlock(dim, p);
-  if (!b) return false;
-  const center = { x: p.x + 0.5, y: p.y + 0.5, z: p.z + 0.5 };
-
-  if (task.kind === "tree") {
-    if (!isLog(b.typeId)) return false;
-    const logType = b.typeId;
-    b.setType("minecraft:air");
-    carry[logType] = (carry[logType] || 0) + 1;
-    if (watched) {
-      dim.playSound("dig.wood", center);
-      lookAt(e, center);
-    }
-    if (task.blocks.length === 0) replant(task, logType);
-    return true;
-  }
-
-  const crop = CROPS[/** @type {keyof typeof CROPS} */ (b.typeId)];
-  if (!crop) return false;
-  const g = b.permutation.getState("growth");
-  if (typeof g !== "number" || g < 7) return false;
-  // 収穫して、すぐに植え直す
-  b.setPermutation(b.permutation.withState("growth", 0));
-  const n = crop.min + Math.floor(Math.random() * (crop.max - crop.min + 1));
-  carry[crop.item] = (carry[crop.item] || 0) + n;
-  if (crop.seed && Math.random() < 0.5) carry[crop.seed] = (carry[crop.seed] || 0) + 1;
-  if (watched) {
-    dim.playSound("dig.grass", center);
-    lookAt(e, center);
-  }
-  return true;
-}
-
-/**
- * @param {Entity} e
- * @param {Pos} target
- */
-function lookAt(e, target) {
-  try {
-    e.teleport(e.location, { facingLocation: target });
-  } catch (err) {
-    // 無視
-  }
-}
-
-/**
  * @param {Entity} e
  * @param {number} amount
  */
@@ -583,7 +509,7 @@ function gainXp(e, amount) {
     } catch (err) {
       // 無視
     }
-    notifyMayor(`§a[blockAI] ${getName(e)} が ${JOBS[getJob(e)].name} Lv${after} になりました！`, -1);
+    notifyMayor(`§a[blockAI] ${getName(e)} が ${getJob(e).name} Lv${after} になりました！`, -1);
   }
 }
 
