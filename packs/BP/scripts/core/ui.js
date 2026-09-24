@@ -7,6 +7,7 @@ import { clearAllTasks, ensureStorageMarker } from "./tasks.js";
 import {
   carryTotal,
   getAllVillagers,
+  getBag,
   getCarry,
   getJob,
   getName,
@@ -189,6 +190,7 @@ export async function openVillagerMenu(player, v) {
     `状態: ${getStatus(v) || "-"}`,
     `持ち物 (${carryTotal(carry)} / ${carryCapacity(lv)}):`,
     itemList(carry),
+    carryTotal(getBag(v)) > 0 ? `道具袋（倉庫から持ち出した材料）:\n${itemList(getBag(v))}` : "",
   ]
     .filter((l) => l !== "")
     .join("\n");
@@ -378,7 +380,7 @@ async function showHelp(player) {
         "§e4. 仕事を与える§r",
         "村長の杖で村人をタップ →「職業を変える」。",
         "・木こり: 村の周りの木を切って、苗木を植え直す（作業設定で植え直しをOFFにもできる）",
-        "・農家: 実った小麦・ニンジン等を収穫して植え直す",
+        "・農家: 実った小麦・ニンジン等を収穫して植え直す。空いている畑には倉庫の種をまく（新しく耕すことはしない）",
         "",
         "§e5. 成長§r",
         "働くと経験値が貯まりレベルアップ。作業が速くなり、たくさん運べるようになります。",

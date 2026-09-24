@@ -22,7 +22,8 @@ import { getJobDef } from "./registry.js";
  *   mode: Mode,
  *   event: string,
  *   taskId: number | undefined,
- *   anchor: Pos,
+ *   bestDist: number,
+ *   supplyAfter: number,
  *   anchorTick: number,
  *   nextWork: number,
  *   status: string
@@ -154,6 +155,32 @@ function setCarry(e, carry) {
   e.setDynamicProperty("blockai:carry", JSON.stringify(clean));
 }
 
+/**
+ * 道具袋（倉庫から持ち出した材料。倉庫には戻さない）
+ * @param {Entity} e
+ * @returns {Record<string, number>}
+ */
+export function getBag(e) {
+  const raw = e.getDynamicProperty("blockai:bag");
+  if (typeof raw !== "string") return {};
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    return {};
+  }
+}
+
+/**
+ * @param {Entity} e
+ * @param {Record<string, number>} bag
+ */
+function setBag(e, bag) {
+  /** @type {Record<string, number>} */
+  const clean = {};
+  for (const k of Object.keys(bag)) if (bag[k] > 0) clean[k] = bag[k];
+  e.setDynamicProperty("blockai:bag", Object.keys(clean).length > 0 ? JSON.stringify(clean) : undefined);
+}
+
 /** @param {Record<string, number>} carry */
 export function carryTotal(carry) {
   let n = 0;
@@ -268,7 +295,7 @@ function setMode(e, st, mode, tick) {
     st.event = event;
     e.triggerEvent(event);
   }
-  st.anchor = { x: e.location.x, y: e.location.y, z: e.location.z };
+  st.bestDist = Infinity;
   st.anchorTick = tick;
 }
 
@@ -292,6 +319,11 @@ function isWatched(e) {
  */
 function warpTo(e, p) {
   try {
+    if (isWatched(e)) {
+      // 見えているときは、ワープしたことが分かるように演出する
+      e.dimension.spawnParticle("minecraft:villager_happy", { x: e.location.x, y: e.location.y + 1, z: e.location.z });
+      e.dimension.playSound("mob.endermen.portal", e.location, { volume: 0.4, pitch: 1.5 });
+    }
     e.teleport({ x: p.x + 0.5, y: p.y, z: p.z + 0.5 }, { dimension: e.dimension });
   } catch (err) {
     // 未ロードなど
@@ -328,8 +360,9 @@ export function tickVillagers(tick) {
         mode: "idle",
         event: "",
         taskId: undefined,
-        anchor: { x: e.location.x, y: e.location.y, z: e.location.z },
+        bestDist: Infinity,
         anchorTick: tick,
+        supplyAfter: 0,
         nextWork: 0,
         status: "",
       };
@@ -394,7 +427,7 @@ function step(e, st, village, tick) {
       }
       st.status = status.going;
       // 見られていない、または立ち往生しているならワープ
-      if (!isWatched(e) || stuck(e, st, tick)) {
+      if (!isWatched(e) || stuck(e, st, tick, task.stand)) {
         warpTo(e, task.stand);
       }
       return;
@@ -420,13 +453,15 @@ function step(e, st, village, tick) {
       let got = 0;
       /** @param {string} id */
       const opt = (id) => getOption(e, job, id);
+      const bag = getBag(e);
       while (units > 0 && task.blocks.length > 0) {
-        if (job.work(e, task, carry, watched, opt)) {
+        if (job.work(e, task, carry, watched, opt, bag)) {
           got++;
           units--;
         }
       }
       setCarry(e, carry);
+      setBag(e, bag);
       if (got > 0) gainXp(e, got);
       st.nextWork = tick + workInterval(level);
       st.status = `${status.working} (${carryTotal(carry)}/${cap})`;
@@ -447,8 +482,8 @@ function step(e, st, village, tick) {
         st.status = "倉庫にしまっている";
         return;
       }
-      st.status = `倉庫へ運んでいる (${total})`;
-      if (!isWatched(e) || stuck(e, st, tick)) {
+      st.status = total > 0 ? `倉庫へ運んでいる (${total})` : "倉庫へ材料を取りに行っている";
+      if (!isWatched(e) || stuck(e, st, tick, s)) {
         warpTo(e, storageStand(e.dimension, s));
       }
       return;
@@ -493,6 +528,12 @@ function decide(e, st, village, tick, job, total, cap) {
     goStorage(e, st, village, tick);
     return;
   }
+  // 材料（種など）が足りなければ倉庫へ取りに行く。倉庫にも無ければしばらく諦める
+  if (village.storage && tick >= st.supplyAfter && job.needsSupply?.(e, getBag(e), (id) => getOption(e, job, id))) {
+    st.supplyAfter = tick + 20 * 60;
+    goStorage(e, st, village, tick);
+    return;
+  }
   const task = nearestTask(job.id, e.dimension.id, e.location);
   if (task) {
     setMode(e, st, "to_task", tick);
@@ -526,23 +567,23 @@ function goStorage(e, st, village, tick) {
 }
 
 /**
- * 一定時間ほとんど動いていなければ true
+ * 目的地に近づけていなければ true（穴に落ちた・壁に阻まれた等）
+ * その場でうろうろしていても、目的地との距離が縮まらなければ立ち往生とみなす
  * @param {Entity} e
  * @param {State} st
  * @param {number} tick
+ * @param {Pos} target ブロック座標
  */
-function stuck(e, st, tick) {
-  const p = e.location;
-  const dx = p.x - st.anchor.x;
-  const dy = p.y - st.anchor.y;
-  const dz = p.z - st.anchor.z;
-  if (dx * dx + dy * dy + dz * dz > 1.5 * 1.5) {
-    st.anchor = { x: p.x, y: p.y, z: p.z };
+function stuck(e, st, tick, target) {
+  const d = Math.sqrt(dist2h(target, e.location, true));
+  if (d < st.bestDist - 1) {
+    st.bestDist = d;
     st.anchorTick = tick;
     return false;
   }
   if (tick - st.anchorTick > STUCK_SECONDS * 20) {
     st.anchorTick = tick;
+    st.bestDist = Infinity;
     return true;
   }
   return false;
@@ -600,6 +641,17 @@ function deposit(e, village, carry) {
     }
     carry[id] = count;
     left += count;
+  }
+  // 職業ごとに、倉庫から材料を持ち出す（農家の種など）
+  const job = getJob(e);
+  if (job.onStorage) {
+    const bag = getBag(e);
+    try {
+      job.onStorage(e, container, bag, (id) => getOption(e, job, id));
+    } catch (err) {
+      console.warn(`[blockAI] onStorage error: ${err}`);
+    }
+    setBag(e, bag);
   }
   e.dimension.playSound("random.chestclosed", { x: s.x + 0.5, y: s.y + 0.5, z: s.z + 0.5 });
   return left > 0 ? "full" : "ok";
