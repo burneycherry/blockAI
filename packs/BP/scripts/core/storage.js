@@ -141,6 +141,34 @@ export function forgetHouses() {
 }
 
 /**
+ * 倉庫をマスの真ん中に、真っ直ぐ（東西南北のどれか）向けて置き直す。ずれていなければ何もしない
+ * @param {import("@minecraft/server").Entity} house
+ * @param {number} [yaw] 向き（省略すると今の向きに近い方）
+ */
+export function alignHouse(house, yaw) {
+  try {
+    if (!house.isValid) return;
+    const saved = house.getDynamicProperty("blockai:yaw");
+    const want = snapYaw(yaw ?? (typeof saved === "number" ? saved : house.getRotation().y));
+    if (saved !== want) house.setDynamicProperty("blockai:yaw", want);
+    const p = house.location;
+    const to = { x: Math.floor(p.x) + 0.5, y: p.y, z: Math.floor(p.z) + 0.5 };
+    const rot = house.getRotation().y;
+    const off = Math.abs(to.x - p.x) + Math.abs(to.z - p.z);
+    const turn = Math.abs(((rot - want + 540) % 360) - 180);
+    if (off > 0.01 || turn > 0.5) house.teleport(to, { rotation: { x: 0, y: want } });
+  } catch (err) {
+    // 無視
+  }
+}
+
+/** 向きを 0/90/180/270 度にそろえる @param {number} yaw */
+function snapYaw(yaw) {
+  const r = Math.round(yaw / 90) * 90;
+  return ((r + 180) % 360 + 360) % 360 - 180;
+}
+
+/**
  * 村人が荷物を運べる場所の一覧
  * @param {VillageData} village
  * @returns {StorePoint[]}

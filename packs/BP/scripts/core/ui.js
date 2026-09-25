@@ -31,6 +31,7 @@ import {
   getStatus,
   getOption,
   getXp,
+  isPaused,
   jobHistory,
   setOption,
   initVillager,
@@ -38,6 +39,7 @@ import {
   setCharacter,
   setJob,
   setName,
+  setPaused,
 } from "./villager.js";
 import { BUILD_NAMES, CHARACTERS } from "./characters.js";
 import { fallenCount, fallenNames, forget } from "./life.js";
@@ -288,7 +290,7 @@ export async function openVillagerMenu(player, v) {
   const ch = CHARACTERS[getCharacter(v)];
   const body = [
     `名前: §e${getName(v)}§r  §7(${ch.gender === "m" ? "男性" : "女性"}・${BUILD_NAMES[ch.build]})§r`,
-    `職業: ${job.name}`,
+    `職業: ${job.name}${job.work && isPaused(v) ? "  §6（作業休止中）§r" : ""}`,
     `体力: §c${hp.cur} / ${hp.max}§r  §7(一番高い職業レベルで増える)§r`,
     job.work ? `レベル: ${lv} / ${MAX_LEVEL}  (経験値 ${xp}${next !== undefined ? ` / ${next}` : " MAX"})` : "§7無職なのでレベルはありません。職業を与えると、その職業のレベルが上がります。§r",
     job.work ? `  作業の速さ ${(workIntervalSec(lv)).toFixed(2)}秒/個・一度に ${carryCapacity(lv)}個 運べる` : "",
@@ -308,43 +310,42 @@ export async function openVillagerMenu(player, v) {
     itemList(carry),
     ...(carryTotal(bag) > 0 ? ["\n道具袋（倉庫から持ち出した材料）:\n", itemList(bag)] : []),
   );
-  const form = new ActionFormData()
-    .title(getName(v))
-    .body(bodyMsg)
-    .button("職業を変える")
-    .button("名前を変える")
-    .button("ここに呼ぶ")
-    .button("解雇する")
-    .button("見た目を選ぶ");
-  if (job.options && job.options.length > 0) form.button(`${job.name}の作業設定`);
-  const res = await form.show(player);
-  if (res.canceled || res.selection === undefined || !v.isValid) return;
-  switch (res.selection) {
-    case 4:
-      await chooseLooks(player, v);
-      break;
-    case 5:
-      await editOptions(player, v);
-      break;
-    case 0:
-      await chooseJob(player, v);
-      break;
-    case 1:
-      await rename(player, v);
-      break;
-    case 2:
-    {
+  /** @type {[string, () => unknown][]} */
+  const actions = [];
+  if (job.work) {
+    const paused = isPaused(v);
+    actions.push([
+      paused ? "§2作業を再開する§r" : "作業を休ませる（休止）",
+      () => {
+        setPaused(v, !paused);
+        player.sendMessage(
+          paused
+            ? `§a[blockAI] ${getName(v)} は ${job.name} の作業を再開します。`
+            : `§e[blockAI] ${getName(v)} は作業を休みます（持っている物は倉庫にしまいます）。村人メニューの「作業を再開する」で戻せます。`,
+        );
+      },
+    ]);
+  }
+  actions.push(["職業を変える", () => chooseJob(player, v)]);
+  if (job.options && job.options.length > 0) actions.push([`${job.name}の作業設定`, () => editOptions(player, v)]);
+  actions.push(["見た目を選ぶ", () => chooseLooks(player, v)]);
+  actions.push(["名前を変える", () => rename(player, v)]);
+  actions.push([
+    "ここに呼ぶ",
+    () => {
       // プレイヤーに重ならないよう、目の前2ブロックに呼ぶ
       const dir = player.getViewDirection();
       const to = { x: player.location.x + dir.x * 2, y: player.location.y, z: player.location.z + dir.z * 2 };
       v.teleport(to, { dimension: player.dimension, facingLocation: player.location });
-    }
       player.sendMessage(`§a[blockAI] ${getName(v)} を呼びました。`);
-      break;
-    case 3:
-      await dismiss(player, v);
-      break;
-  }
+    },
+  ]);
+  actions.push(["解雇する", () => dismiss(player, v)]);
+  const form = new ActionFormData().title(getName(v)).body(bodyMsg);
+  for (const [label] of actions) form.button(label);
+  const res = await form.show(player);
+  if (res.canceled || res.selection === undefined || !v.isValid) return;
+  await actions[res.selection]?.[1]();
 }
 
 /**
@@ -646,6 +647,7 @@ async function showHelp(player) {
         "村長の杖で村人をタップ →「職業を変える」。",
         "・木こり: 村の周りの木を切って、苗木を植え直す（作業設定で植え直しをOFFにもできる）",
         "・農家: 実った小麦・ニンジン等を収穫して植え直す。空いている畑には倉庫の種をまく（新しく耕すことはしない）",
+        "一時的に働かせたくないときは、村人メニューの「作業を休ませる」。持っている物を倉庫にしまって休みます（「作業を再開する」で戻る）。",
         "",
         "§e5. 仕事場と立ち入り禁止§r",
         "村長メニューの「仕事場と立ち入り禁止エリア」で、職業ごとに働く場所を決めたり、触らせたくない場所を登録できます。",

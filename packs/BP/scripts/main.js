@@ -7,6 +7,7 @@ import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
 import { openStorehouseMenu } from "./core/storage-ui.js";
 import { syncTickingAreas } from "./core/loading.js";
+import { alignHouse, getHouses } from "./core/storage.js";
 // 職業の部品を登録する
 import "./jobs/index.js";
 
@@ -150,7 +151,7 @@ world.afterEvents.entityDie.subscribe(
       const dim = e.dimension;
       system.run(() => {
         const house = dim.spawnEntity(STOREHOUSE_ID, loc);
-        house.setRotation(rot);
+        alignHouse(house, rot.y);
       });
     } catch (err) {
       // 無視
@@ -182,6 +183,8 @@ system.runInterval(() => {
   const village = getVillage();
   if (!village) return;
   if (tick % 40 === 0) {
+    // 倉庫が押されたり回ったりしていたら、マスの真ん中・真っ直ぐに戻す
+    for (const house of getHouses(village)) alignHouse(house);
     const active = new Set(getAllVillagers().map((v) => getJob(v).id));
     requestScan(village, active);
   }

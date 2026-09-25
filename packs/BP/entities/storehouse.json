@@ -21,9 +21,11 @@
         ]
       },
       "minecraft:collision_box": {
-        "width": 0.9,
-        "height": 0.9
+        "width": 0.875,
+        "height": 0.875
       },
+      "minecraft:is_collidable": {},
+      "minecraft:body_rotation_blocked": {},
       "minecraft:health": {
         "value": 1000,
         "max": 1000

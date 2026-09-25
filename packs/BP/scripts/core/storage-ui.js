@@ -5,12 +5,14 @@ import { STAFF_ID, STOREHOUSE_ID } from "./config.js";
 import { getVillage } from "./village.js";
 import {
   addToStock,
+  alignHouse,
   capacitySlots,
   forgetHouses,
   getHouses,
   getStock,
   maxHouses,
   setLid,
+  stackSize,
   takeFromStock,
   usedSlots,
 } from "./storage.js";
@@ -57,7 +59,9 @@ export function placeStorehouse(player) {
     loc = { x: Math.floor(player.location.x + d.x * 2) + 0.5, y: Math.floor(player.location.y), z: Math.floor(player.location.z + d.z * 2) + 0.5 };
   }
   const house = player.dimension.spawnEntity(STOREHOUSE_ID, loc);
-  house.teleport(loc, { facingLocation: { x: player.location.x, y: loc.y, z: player.location.z } });
+  // 正面をプレイヤーの方へ（東西南北のどれかに真っ直ぐ）
+  const yaw = (Math.atan2(-(player.location.x - loc.x), player.location.z - loc.z) * 180) / Math.PI;
+  alignHouse(house, yaw);
   forgetHouses();
   player.sendMessage(`§a[blockAI] 村の倉庫を置きました（${count + 1} / ${max}）。タップすると開けます。中身はどの倉庫からでも同じです。`);
 }
@@ -140,6 +144,17 @@ export function stockSummary(v) {
   ].join("\n");
 }
 
+/**
+ * 個数とスタック数（例: 「1,703個 / 27スタック」「19個 / 2スタック（16個で1スタック）」）
+ * @param {string} id
+ * @param {number} n
+ */
+function stackText(id, n) {
+  const size = stackSize(id);
+  const text = `${fmt(n)}個 / ${Math.ceil(n / size)}スタック`;
+  return size === 64 ? text : `${text}（${size}個で1スタック）`;
+}
+
 /** @param {Player} player */
 async function takeOut(player) {
   const stock = getStock();
@@ -149,7 +164,7 @@ async function takeOut(player) {
     return;
   }
   const form = new ActionFormData().title("取り出す").body("取り出す物を選んでください。");
-  for (const id of ids) form.button(raw(itemRaw(id), `\n§8${fmt(stock[id])} 個`), itemIcon(id));
+  for (const id of ids) form.button(raw(itemRaw(id), `\n§8${stackText(id, stock[id])}`), itemIcon(id));
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
   const id = ids[res.selection];

@@ -128,6 +128,20 @@ export function setOption(e, job, optId, value) {
   e.setDynamicProperty(`blockai:opt:${job.id}:${optId}`, value);
 }
 
+/** 作業を休ませているか @param {Entity} e */
+export function isPaused(e) {
+  return e.getDynamicProperty("blockai:paused") === true;
+}
+
+/**
+ * 作業を休ませる・再開する
+ * @param {Entity} e
+ * @param {boolean} paused
+ */
+export function setPaused(e, paused) {
+  e.setDynamicProperty("blockai:paused", paused ? true : undefined);
+}
+
 /** @param {number} xp */
 export function levelOf(xp) {
   let lv = 1;
@@ -523,6 +537,12 @@ function step(e, st, village, tick) {
     return;
   }
   const status = job.status;
+  // 作業休止にしたら、今の仕事をやめる（荷物があれば倉庫へしまってから休む）
+  if (isPaused(e) && (st.mode === "to_task" || st.mode === "working")) {
+    releaseTask(st);
+    decide(e, st, village, tick, job, total, cap);
+    return;
+  }
 
   switch (st.mode) {
     case "idle":
@@ -667,6 +687,15 @@ function decide(e, st, village, tick, job, total, cap) {
   if (isNight()) {
     if (total > 0 && hasStorage(village)) goStorage(e, st, village, tick);
     else goRest(e, st, village, tick);
+    return;
+  }
+  if (isPaused(e)) {
+    if (total > 0 && hasStorage(village)) {
+      goStorage(e, st, village, tick);
+      return;
+    }
+    setMode(e, st, "idle", tick);
+    st.status = "§6作業休止中";
     return;
   }
   if (total >= cap) {
