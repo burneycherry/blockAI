@@ -15,7 +15,7 @@
 - `core/life.js`：倒れたときの記録と、翌朝の復活
 - `core/storage.js`：村の倉庫。専用の倉庫（`blockai:storehouse`、family に `blockai_wp_storage` を持つので村人はそれ自体を目指す）は複数置けて中身は共有（ワールドの `blockai:stock`）。容量はスタック単位（種類ごとに `maxAmount` 個で1スタック。画面の言葉も「スタック」）。表示は「大きいチェスト○個分」で説明する。倉庫はこの専用エンティティだけで、普通のチェストを倉庫として使う方式は作らない。職業は `StoreSource`（count/take）で材料を持ち出す
 - `core/icons.js`：メニューに出すアイテムの絵（バニラのテクスチャの場所。取れるAPIが無いので村で扱う物だけ手で書く）。ブロックは持ち物の欄と同じ立体の絵にする：`tools/gen-icons.mjs` がバニラのテクスチャ（Mojang/bedrock-samples）から `RP/textures/blockai/icons/*.png` を作る（ネットが必要なので `check` には入れない）
-- `core/storage-ui.js`：倉庫のメニュー（取り出す・しまう・片付ける）と設置。見た目は `tools/gen-storehouse.mjs`（ふたは `blockai:open` で開く）
+- `core/storage-ui.js`：倉庫のメニュー（取り出す・しまう・片付ける）と設置。見た目は `tools/gen-storehouse.mjs`（ふたは `blockai:open` で開く。当たり判定のブロック `blockai:storehouse_block` も同じツールで作る）
 - `jobs/lumberjack.js`（基本パック）、`jobs/farmer.js`（農業パック予定）、`jobs/index.js` で読み込む
 
 ## 村人の移動

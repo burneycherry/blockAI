@@ -1,13 +1,15 @@
 // 調整用の定数をまとめたファイル
 
 /** パックのバージョン（manifest.json と合わせる） */
-export const VERSION = "0.13.7";
+export const VERSION = "0.13.8";
 
 export const VILLAGER_ID = "blockai:villager";
 export const STAFF_ID = "blockai:mayor_staff";
 export const WP_TASK_ID = "blockai:wp_task";
 export const WP_STORAGE_ID = "blockai:wp_storage";
 export const STOREHOUSE_ID = "blockai:storehouse";
+/** 倉庫の当たり判定になる見えないブロック（倉庫のエンティティはこの中に入っている） */
+export const STOREHOUSE_BLOCK_ID = "blockai:storehouse_block";
 
 /** 村人の最大人数 */
 export const MAX_VILLAGERS = 20;

@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "blockai",
+  "texture_name": "atlas.terrain",
+  "texture_data": {
+    "blockai_invisible": {
+      "textures": "textures/blockai/invisible"
+    }
+  }
+}

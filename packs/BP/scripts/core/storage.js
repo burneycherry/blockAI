@@ -1,7 +1,7 @@
 // 村の倉庫
 //   - 専用の倉庫（blockai:storehouse）：村の中に何個も置ける。中身は全部の倉庫で共有し、容量は村レベルで増える
 import { ItemStack, system, world } from "@minecraft/server";
-import { STOREHOUSE_ID } from "./config.js";
+import { STOREHOUSE_BLOCK_ID, STOREHOUSE_ID } from "./config.js";
 import { villageLevel } from "./village.js";
 import { dist2h, standPosNear } from "./blocks.js";
 
@@ -157,8 +157,61 @@ export function alignHouse(house, yaw) {
     const off = Math.abs(to.x - p.x) + Math.abs(to.z - p.z);
     const turn = Math.abs(((rot - want + 540) % 360) - 180);
     if (off > 0.01 || turn > 0.5) house.teleport(to, { rotation: { x: 0, y: want } });
+    ensureHouseBlock(house);
   } catch (err) {
     // 無視
+  }
+}
+
+/** 倉庫のブロックに置き換えてよい物（空気・雪の層・草花） */
+const REPLACEABLE = new Set([
+  "minecraft:air",
+  "minecraft:snow_layer",
+  "minecraft:short_grass",
+  "minecraft:tall_grass",
+  "minecraft:fern",
+  "minecraft:large_fern",
+  "minecraft:deadbush",
+  "minecraft:short_dry_grass",
+  "minecraft:tall_dry_grass",
+]);
+
+/**
+ * 倉庫の場所に当たり判定のブロックを置く（無ければ）
+ * @param {import("@minecraft/server").Entity} house
+ */
+function ensureHouseBlock(house) {
+  const p = house.location;
+  const block = house.dimension.getBlock({ x: Math.floor(p.x), y: Math.floor(p.y + 0.01), z: Math.floor(p.z) });
+  if (!block || block.typeId === STOREHOUSE_BLOCK_ID) return;
+  if (REPLACEABLE.has(block.typeId)) block.setType(STOREHOUSE_BLOCK_ID);
+}
+
+/**
+ * 倉庫の当たり判定のブロックを消す（片付けるとき）
+ * @param {import("@minecraft/server").Entity} house
+ */
+export function removeHouseBlock(house) {
+  try {
+    const p = house.location;
+    const block = house.dimension.getBlock({ x: Math.floor(p.x), y: Math.floor(p.y + 0.01), z: Math.floor(p.z) });
+    if (block?.typeId === STOREHOUSE_BLOCK_ID) block.setType("minecraft:air");
+  } catch (err) {
+    // 無視
+  }
+}
+
+/**
+ * そのブロックの場所にある倉庫
+ * @param {import("@minecraft/server").Block} block
+ */
+export function houseAt(block) {
+  try {
+    return block.dimension
+      .getEntities({ type: STOREHOUSE_ID, location: { x: block.x + 0.5, y: block.y, z: block.z + 0.5 }, maxDistance: 1.5 })
+      .find((h) => Math.floor(h.location.x) === block.x && Math.floor(h.location.z) === block.z);
+  } catch (err) {
+    return undefined;
   }
 }
 

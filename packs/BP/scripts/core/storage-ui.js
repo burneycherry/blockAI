@@ -10,6 +10,7 @@ import {
   forgetHouses,
   getHouses,
   getStock,
+  removeHouseBlock,
   maxHouses,
   setLid,
   stackSize,
@@ -57,6 +58,11 @@ export function placeStorehouse(player) {
   if (!loc) {
     const d = player.getViewDirection();
     loc = { x: Math.floor(player.location.x + d.x * 2) + 0.5, y: Math.floor(player.location.y), z: Math.floor(player.location.z + d.z * 2) + 0.5 };
+  }
+  const pl = player.location;
+  if (Math.floor(pl.x) === Math.floor(loc.x) && Math.floor(pl.z) === Math.floor(loc.z) && Math.abs(pl.y - loc.y) < 2) {
+    player.sendMessage("§e[blockAI] 自分の足元には置けません。少し離れた地面を見て置いてください。");
+    return;
   }
   const house = player.dimension.spawnEntity(STOREHOUSE_ID, loc);
   // 正面をプレイヤーの方へ（東西南北のどれかに真っ直ぐ）
@@ -275,6 +281,7 @@ async function removeHouse(player, house) {
     .button2("片付ける")
     .show(player);
   if (res.selection !== 1 || !house.isValid) return;
+  removeHouseBlock(house);
   house.remove();
   forgetHouses();
   player.sendMessage("§e[blockAI] 倉庫を片付けました。");

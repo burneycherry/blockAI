@@ -1,5 +1,5 @@
 import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/server";
-import { STAFF_ID, STOREHOUSE_ID, VILLAGER_ID } from "./core/config.js";
+import { STAFF_ID, STOREHOUSE_BLOCK_ID, STOREHOUSE_ID, VILLAGER_ID } from "./core/config.js";
 import { getVillage } from "./core/village.js";
 import { cleanupMarkers, requestScan } from "./core/tasks.js";
 import { getAllVillagers, getJob, initVillager, noteHurt, tickAssist, tickVillagers } from "./core/villager.js";
@@ -7,7 +7,7 @@ import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
 import { openStorehouseMenu } from "./core/storage-ui.js";
 import { syncTickingAreas } from "./core/loading.js";
-import { alignHouse, getHouses } from "./core/storage.js";
+import { alignHouse, getHouses, houseAt } from "./core/storage.js";
 // 職業の部品を登録する
 import "./jobs/index.js";
 
@@ -61,6 +61,10 @@ world.afterEvents.itemUse.subscribe((ev) => {
   // チェストなどを見ているときは、そちらの操作を優先する
   try {
     const block = player.getBlockFromViewDirection({ maxDistance: 6 })?.block;
+    if (block?.typeId === STOREHOUSE_BLOCK_ID) {
+      openHouseBlock(player, block);
+      return;
+    }
     if (block?.getComponent("minecraft:inventory")) return;
   } catch (err) {
     // 無視
@@ -77,6 +81,36 @@ function openHouse(player, house) {
   if (!canOpen(player)) return;
   openSoon(() => openStorehouseMenu(player, house));
 }
+
+/**
+ * 倉庫のブロック（当たり判定）をタップしたとき
+ * @param {Player} player
+ * @param {import("@minecraft/server").Block} block
+ */
+function openHouseBlock(player, block) {
+  const house = houseAt(block);
+  if (house) {
+    openHouse(player, house);
+    return;
+  }
+  // 倉庫が無くなって残ったブロックは片付ける
+  system.run(() => {
+    if (block.isValid && block.typeId === STOREHOUSE_BLOCK_ID) block.setType("minecraft:air");
+  });
+}
+
+// 倉庫のブロックをタップ・使う・叩く
+world.afterEvents.playerInteractWithBlock.subscribe((ev) => {
+  if (ev.block.typeId === STOREHOUSE_BLOCK_ID) openHouseBlock(ev.player, ev.block);
+});
+world.afterEvents.entityHitBlock.subscribe((ev) => {
+  const player = ev.damagingEntity;
+  if (player instanceof Player && ev.hitBlock.typeId === STOREHOUSE_BLOCK_ID) openHouseBlock(player, ev.hitBlock);
+});
+// クリエイティブでも壊れないようにする
+world.beforeEvents.playerBreakBlock.subscribe((ev) => {
+  if (ev.block.typeId === STOREHOUSE_BLOCK_ID) ev.cancel = true;
+});
 
 // 村の倉庫をタップ・使う（何を持っていても開く）
 world.afterEvents.playerInteractWithEntity.subscribe((ev) => {

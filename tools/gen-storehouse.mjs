@@ -182,6 +182,38 @@ writeJson("packs/RP/entity/storehouse.entity.json", {
   },
 });
 
+// ---------------------------------------------------------------
+// 当たり判定用の見えないブロック（普通のチェストと同じ 14x14x14）
+// 倉庫のエンティティはこの中に入っている。ブロックなので、歩いて近づくと自動ジャンプで乗れる
+// ---------------------------------------------------------------
+writeJson("packs/BP/blocks/storehouse_block.json", {
+  format_version: "1.21.40",
+  "minecraft:block": {
+    description: {
+      identifier: "blockai:storehouse_block",
+      menu_category: { category: "none", is_hidden_in_commands: true },
+    },
+    components: {
+      "minecraft:collision_box": { origin: [-7, 0, -7], size: [14, 14, 14] },
+      "minecraft:selection_box": { origin: [-7, 0, -7], size: [14, 14, 14] },
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": { "*": { texture: "blockai_invisible", render_method: "alpha_test", ambient_occlusion: false, face_dimming: false } },
+      "minecraft:destructible_by_mining": false,
+      "minecraft:destructible_by_explosion": false,
+      "minecraft:light_dampening": 0,
+      "minecraft:loot": "loot_tables/blockai/empty.json",
+    },
+  },
+});
+writeJson("packs/BP/loot_tables/blockai/empty.json", { pools: [] });
+writeJson("packs/RP/textures/terrain_texture.json", {
+  resource_pack_name: "blockai",
+  texture_name: "atlas.terrain",
+  texture_data: { blockai_invisible: { textures: "textures/blockai/invisible" } },
+});
+write("packs/RP/textures/blockai/invisible.png", encodePng(16, 16, new Uint8Array(16 * 16 * 4)));
+writeJson("packs/RP/blocks.json", { format_version: [1, 1, 0], "blockai:storehouse_block": { sound: "wood" } });
+
 // 叩かれたときの音は鳴らさない
 writeJson("packs/RP/sounds.json", {
   entity_sounds: {
