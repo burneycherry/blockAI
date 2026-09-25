@@ -1,5 +1,7 @@
 // 農家（農業パック予定）: 実った作物を収穫して植え直す。空いている畑には倉庫の種をまく
 import { system } from "@minecraft/server";
+import { RETRY_TICKS } from "../core/config.js";
+import { getStock } from "../core/storage.js";
 import { registerJob } from "../core/registry.js";
 import { addCarry, center, dist2, key, lookAt, safeBlock } from "../core/blocks.js";
 import { takeBlock, takeBlocksWhere, tasks } from "../core/tasks.js";
@@ -66,8 +68,6 @@ const skipUntil = new Map();
 /** まけなかった畑が欲しがっている種（倉庫から持ち出す） */
 /** @type {Set<string>} */
 const wanted = new Set();
-/** まけなかった畑を後回しにする時間（60秒） */
-const SKIP_TICKS = 20 * 60;
 
 /** @param {import("../core/registry.js").Pos} p */
 function skipped(p) {
@@ -131,7 +131,7 @@ function plantOne(ctx) {
   const seed = chooseSeed(dim, p, bag);
   if (!seed) {
     // 合う種が無い。しばらく後回しにして、次に倉庫へ行ったときに持ち出す
-    skipUntil.set(key(p), system.currentTick + SKIP_TICKS);
+    skipUntil.set(key(p), system.currentTick + RETRY_TICKS);
     return false;
   }
   b.setType(SEED_TO_CROP[seed]);
@@ -293,7 +293,10 @@ registerJob({
 
   needsSupply(e, bag, opt) {
     if (!opt("plant")) return false;
-    // 種が切れた、または畑が欲しがっている種を持っていない
-    return (seedCount(bag) === 0 && pendingPlantTasks() > 0) || [...wanted].some((s) => (bag[s] ?? 0) === 0);
+    // 種が切れた、または畑が欲しがっている種を持っていない（倉庫にあるときだけ取りに行く）
+    const stock = getStock();
+    const inStock = (/** @type {string} */ s) => (stock[s] ?? 0) > 0;
+    if (seedCount(bag) === 0 && pendingPlantTasks() > 0 && Object.keys(SEED_TO_CROP).some(inStock)) return true;
+    return [...wanted].some((s) => (bag[s] ?? 0) === 0 && inStock(s));
   },
 });

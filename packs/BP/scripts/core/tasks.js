@@ -1,5 +1,5 @@
 import { system, world } from "@minecraft/server";
-import { DEFAULT_MAX_TASKS, WP_TASK_ID } from "./config.js";
+import { DEFAULT_MAX_TASKS, RETRY_TICKS, WP_TASK_ID } from "./config.js";
 import { getJobDef, workingJobs } from "./registry.js";
 import { isProtected, workArea } from "./village.js";
 import { dist2h, key, safeBlock } from "./blocks.js";
@@ -90,8 +90,8 @@ function* scanJob(village, regions) {
     }
   } finally {
     scanning = false;
-    // 何も見つからなければ10秒休む（木が育ったらすぐ気づけるように、長くしすぎない）
-    nextScanTick = system.currentTick + (tasks.size > before ? 40 : 200);
+    // 何も見つからなければ少し休む（RETRY_TICKS。木が育ったらすぐ気づけるように、長くしすぎない）
+    nextScanTick = system.currentTick + (tasks.size > before ? 40 : RETRY_TICKS);
   }
 }
 

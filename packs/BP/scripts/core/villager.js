@@ -9,6 +9,7 @@ import {
   VILLAGER_NAMES,
   carryCapacity,
   maxHp,
+  RETRY_TICKS,
   workInterval,
 } from "./config.js";
 import { CHARACTERS } from "./characters.js";
@@ -704,7 +705,7 @@ function decide(e, st, village, tick, job, total, cap) {
   }
   // 材料（種など）が足りなければ倉庫へ取りに行く。倉庫にも無ければしばらく諦める
   if (hasStorage(village) && tick >= st.supplyAfter && job.needsSupply?.(e, getBag(e), (id) => getOption(e, job, id))) {
-    st.supplyAfter = tick + 20 * 60;
+    st.supplyAfter = tick + RETRY_TICKS;
     goStorage(e, st, village, tick);
     return;
   }

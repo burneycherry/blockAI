@@ -1,29 +1,29 @@
 {
   "format_version": 2,
   "header": {
-    "name": "blockAI 村づくり v0.13.11 (ビヘイビア)",
+    "name": "blockAI 村づくり v0.13.12 (ビヘイビア)",
     "description": "pack.description",
     "uuid": "2dc75a6a-19d8-49b8-b475-1fc9ef2d236b",
-    "version": [0, 13, 11],
+    "version": [0, 13, 12],
     "min_engine_version": [1, 21, 100]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "8f0110d0-a20f-4301-9bc1-fc20ed9de27c",
-      "version": [0, 13, 11]
+      "version": [0, 13, 12]
     },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "96454ff3-4d0f-4ba1-ba37-c6c0669ff371",
       "entry": "scripts/main.js",
-      "version": [0, 13, 11]
+      "version": [0, 13, 12]
     }
   ],
   "dependencies": [
     { "module_name": "@minecraft/server", "version": "2.10.0" },
     { "module_name": "@minecraft/server-ui", "version": "2.2.0" },
-    { "uuid": "8604d005-b6c7-47ba-b8bd-d58753fdfdb7", "version": [0, 13, 11] }
+    { "uuid": "8604d005-b6c7-47ba-b8bd-d58753fdfdb7", "version": [0, 13, 12] }
   ]
 }

@@ -1,7 +1,7 @@
 // 調整用の定数をまとめたファイル
 
 /** パックのバージョン（manifest.json と合わせる） */
-export const VERSION = "0.13.11";
+export const VERSION = "0.13.12";
 
 export const VILLAGER_ID = "blockai:villager";
 export const STAFF_ID = "blockai:mayor_staff";
@@ -25,6 +25,12 @@ export const DEFAULT_MAX_TASKS = 6;
 /** 最大レベル */
 export const MAX_LEVEL = 10;
 /** レベルごとの必要経験値（index = レベル-1） */
+/**
+ * 仕事が無い・材料が無いときに、探し直す（やり直す）までの間（10秒）。全職業で共通
+ * 長いと木が育った・種が届いたのに気づくのが遅れる
+ */
+export const RETRY_TICKS = 200;
+
 export const LEVEL_XP = [0, 30, 90, 200, 400, 700, 1100, 1600, 2300, 3200];
 /** レベルごとの作業間隔（tick。20tick = 1秒） */
 const WORK_TICKS = [20, 18, 16, 14, 12, 10, 9, 8, 7, 6];
