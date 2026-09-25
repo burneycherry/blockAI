@@ -17,6 +17,7 @@ import { assignBed, bedUsable, isNight, markBed, releaseBed, unmarkBed } from ".
 import { addStat, getVillage, workArea } from "./village.js";
 import { nearestTask, removeTask, resetScanWait, scanNear, tasks } from "./tasks.js";
 import { canStand, dist2h, standPosNear } from "./blocks.js";
+import { guardFarmland } from "./farmland.js";
 import { depositInto, hasStorage, nearestStorePoint, sourceOf, standFor } from "./storage.js";
 import { getJobDef, skillLevel } from "./registry.js";
 
@@ -501,6 +502,12 @@ export function tickVillagers(tick) {
       initVillager(e);
       applyLooks(e);
       setMode(e, st, "idle", tick);
+    }
+    try {
+      // ジャンプで畑を土に戻していたら直す（寝ている間は動かないので見ない）
+      if (st.mode !== "sleeping") guardFarmland(e);
+    } catch (err) {
+      // 無視
     }
     try {
       step(e, st, village, tick);

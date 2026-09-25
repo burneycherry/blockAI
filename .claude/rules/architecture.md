@@ -13,6 +13,7 @@
 - `core/characters.js`：キャラクター20人の定義（`tools/gen-humans.mjs` もここを読む）
 - `core/beds.js`：夜の判定、ベッド探しと割り当て、ベッドの目印（`blockai_wp_home`）
 - `core/life.js`：倒れたときの記録と、翌朝の復活
+- `core/farmland.js`：村人の足元の畑の土を見張り、踏み荒らしで土に戻ったら2秒以内なら畑の土（水分7）に戻す
 - `core/storage.js`：村の倉庫。専用の倉庫（`blockai:storehouse`、family に `blockai_wp_storage` を持つので村人はそれ自体を目指す）は複数置けて中身は共有（ワールドの `blockai:stock`）。容量はスタック単位（種類ごとに `maxAmount` 個で1スタック。画面の言葉も「スタック」）。表示は「大きいチェスト○個分」で説明する。倉庫はこの専用エンティティだけで、普通のチェストを倉庫として使う方式は作らない。職業は `StoreSource`（count/take）で材料を持ち出す
 - `core/icons.js`：メニューに出すアイテムの絵（バニラのテクスチャの場所。取れるAPIが無いので村で扱う物だけ手で書く）。ブロックは持ち物の欄と同じ立体の絵にする：`tools/gen-icons.mjs` がバニラのテクスチャ（Mojang/bedrock-samples）から `RP/textures/blockai/icons/*.png` を作る（ネットが必要なので `check` には入れない）
 - `core/storage-ui.js`：倉庫のメニュー（取り出す・しまう・片付ける）と設置。見た目は `tools/gen-storehouse.mjs`（ふたは `blockai:open` で開く。当たり判定のブロック `blockai:storehouse_block` も同じツールで作る）
@@ -30,7 +31,7 @@
 - 作業のアニメーションは、スクリプトの `playAnimation("animation.blockai.human.swing")` で再生する
 
 ## 生成ツール
-- `tools/gen-entities.mjs`（村人の行動グループ・体力段階・マーカー）、`tools/gen-tree.mjs`（倒木）、`tools/gen-humans.mjs` + `tools/human-art.mjs`（村人の見た目）、`tools/gen-storehouse.mjs`（倉庫の見た目・音）、`tools/gen-icons.mjs`（メニューのブロックの絵）、`tools/make-test.mjs`（テスト用zip）、`tools/png.mjs`（PNG書き出し）
+- `tools/gen-entities.mjs`（村人の行動グループ・体力段階・マーカー）、`tools/gen-tree.mjs`（倒木）、`tools/gen-humans.mjs` + `tools/human-art.mjs`（村人の見た目）、`tools/gen-storehouse.mjs`（倉庫の見た目・音）、`tools/gen-icons.mjs`（メニューのブロックの絵）、`tools/make-test.mjs`（テスト用zip）、`tools/make_icon.mjs`（pack_icon。夕焼けの空・草ブロック・村人2人の頭。バニラのテクスチャが必要）、`tools/png.mjs`（PNG書き出し）、`tools/img.mjs`（PNG・TGA読み込み）
 
 ## 職業の追加
 `jobs/xxx.js` で `registerJob({ id, name, skin, pack, status, reach, scan, work, options, skills, onStorage, needsSupply })`（skin は衣装番号、reach は作業を始められる距離、onStorage は `StoreSource` から材料を持ち出す） を呼び、`jobs/index.js` に import を足す。`scan` は1列の一番上のブロックから仕事を `addTask(stand, blocks, data)` で登録する。`work(ctx)` はこなした数を返す。
