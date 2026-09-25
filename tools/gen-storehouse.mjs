@@ -72,6 +72,13 @@ for (let y = 0; y < 8; y++) {
   for (let x = 48; x < 56; x++) set(x, y, [74, 70, 68].map((v) => v * (0.9 + hash(x, y, 7) * 0.2)));
   for (let x = 56; x < 64; x++) set(x, y, [42, 40, 40].map((v) => v * (0.9 + hash(x, y, 8) * 0.2)));
 }
+// 中（ふたを開けたときに見える面）：普通のチェストと同じく黒っぽく、縁だけ木
+for (let y = 16; y < 30; y++) {
+  for (let x = 32; x < 46; x++) {
+    const rim = x === 32 || x === 45 || y === 16 || y === 29;
+    set(x, y, rim ? mix(WOOD, CHAR, 0.55) : [22, 16, 12].map((v) => v * (0.85 + hash(x, y, 9) * 0.3)));
+  }
+}
 write("packs/RP/textures/entity/blockai/storehouse.png", encodePng(S, S, px));
 
 // ---------------------------------------------------------------
@@ -80,6 +87,10 @@ write("packs/RP/textures/entity/blockai/storehouse.png", encodePng(S, S, px));
 const face = (/** @type {number} */ u, /** @type {number} */ v, /** @type {number} */ w, /** @type {number} */ h) => ({ uv: [u, v], uv_size: [w, h] });
 const all = (/** @type {any} */ f) => ({ north: f, south: f, east: f, west: f, up: f, down: f });
 const wood = all(face(0, 0, 32, 32));
+const inside = face(32, 16, 14, 14);
+// 本体の上の面・ふたの下の面は中身の暗い色
+const baseWood = { ...wood, up: inside };
+const lidWood = { ...wood, down: inside };
 const iron = all(face(48, 0, 8, 8));
 const ironDark = all(face(56, 0, 8, 8));
 const box = (/** @type {number[]} */ origin, /** @type {number[]} */ size, /** @type {any} */ uv) => ({ origin, size, uv });
@@ -98,7 +109,7 @@ const frame = (y, h, uv) => [
 ];
 // 形は普通のチェストと同じ（14x14x14。本体10段＋ふた4段＋留め金）
 const lidCubes = [
-  box([-7, 10, -7], [14, 4, 14], wood),
+  box([-7, 10, -7], [14, 4, 14], lidWood),
   ...frame(13.4, 0.7, iron), // ふたの上の縁
   ...frame(10, 0.6, ironDark), // ふたの下の縁
   box([-1, 7, -8], [2, 4, 1], ironDark), // 留め金
@@ -122,7 +133,7 @@ writeJson("packs/RP/models/entity/storehouse.geo.json", {
           parent: "root",
           pivot: [0, 0, 0],
           cubes: [
-            box([-7, 0, -7], [14, 10, 14], wood),
+            box([-7, 0, -7], [14, 10, 14], baseWood),
             ...frame(0, 0.7, ironDark), // 下の縁
             ...frame(9.4, 0.6, iron), // 上の縁
             // 角の鉄枠

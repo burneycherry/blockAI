@@ -86,7 +86,11 @@ function harvestAt(ctx, p) {
   let n = crop.min + Math.floor(Math.random() * (crop.max - crop.min + 1));
   if (ctx.skill("bumper") && Math.random() < 0.33) n += 1;
   addCarry(carry, crop.item, n);
-  if (crop.seed !== crop.item && Math.random() < 0.5) addCarry(carry, crop.seed, 1);
+  if (crop.seed !== crop.item && Math.random() < 0.5) {
+    // 取れた種は、種まきに使うので道具袋へ（いっぱいなら倉庫へ運ぶ）
+    if (ctx.opt("plant") && seedCount(ctx.bag) < BAG_MAX) ctx.bag[crop.seed] = (ctx.bag[crop.seed] ?? 0) + 1;
+    else addCarry(carry, crop.seed, 1);
+  }
   if (watched) {
     dim.playSound("dig.grass", center(p));
     lookAt(e, center(p));
@@ -158,7 +162,7 @@ registerJob({
   skills: [
     { id: "bumper", level: 5, name: "豊作", description: "ときどき収穫量が1つ増える（3回に1回くらい）" },
     { id: "green", level: 8, name: "緑の手", description: "植えた作物・植え直した作物が、少し育った状態から始まる" },
-    { id: "sweep", level: 10, name: "一斉収穫", description: "目の前3×3（9マス）の実った作物をまとめて刈り取る" },
+    { id: "sweep", level: 10, name: "一斉収穫", description: "刈る作物の周り3×3（9マス）の実った作物をまとめて刈り取る" },
   ],
 
   scan(dim, top, addTask, isClaimed) {
@@ -204,13 +208,23 @@ registerJob({
 
   work(ctx) {
     const { e, task, watched } = ctx;
-    // 特技「一斉収穫」: 次に刈る作物を中心に、目の前3×3（9マス）をまとめて刈り取る
+    // 特技「一斉収穫」: 次に刈る作物を中心に、周り3×3（9マス）をまとめて刈り取る
+    // （ほかの仕事に入っている作物や、段違いの作物も含めて、実っていれば全部刈る）
     if (task.data.kind !== "plant" && ctx.skill("sweep")) {
       const next = task.blocks[task.blocks.length - 1];
       if (!next) return 0;
-      const area = takeBlocksWhere(task, (p) => Math.abs(p.x - next.x) <= 1 && Math.abs(p.z - next.z) <= 1);
+      takeBlocksWhere(task, (p) => Math.abs(p.x - next.x) <= 1 && Math.abs(p.z - next.z) <= 1);
       let n = 0;
-      for (const p of area) n += harvestAt(ctx, p) ? 1 : 0;
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          for (const dy of [0, 1, -1]) {
+            if (harvestAt(ctx, { x: next.x + dx, y: next.y + dy, z: next.z + dz })) {
+              n++;
+              break;
+            }
+          }
+        }
+      }
       if (watched && n > 0) {
         e.dimension.playSound("dig.grass", e.location, { volume: 1.5, pitch: 0.8 });
         ctx.wait(20);
