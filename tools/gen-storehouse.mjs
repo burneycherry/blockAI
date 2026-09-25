@@ -187,7 +187,7 @@ writeJson("packs/RP/entity/storehouse.entity.json", {
 // 倉庫のエンティティはこの中に入っている。ブロックなので、歩いて近づくと自動ジャンプで乗れる
 // ---------------------------------------------------------------
 writeJson("packs/BP/blocks/storehouse_block.json", {
-  format_version: "1.21.40",
+  format_version: "1.21.100",
   "minecraft:block": {
     description: {
       identifier: "blockai:storehouse_block",
@@ -200,6 +200,8 @@ writeJson("packs/BP/blocks/storehouse_block.json", {
       "minecraft:material_instances": { "*": { texture: "blockai_invisible", render_method: "alpha_test", ambient_occlusion: false, face_dimming: false } },
       "minecraft:destructible_by_mining": false,
       "minecraft:destructible_by_explosion": false,
+      // ピストンでも動かない（エンダーマンは決まったブロックしか持たないので対象外）
+      "minecraft:movable": { movement_type: "immovable" },
       "minecraft:light_dampening": 0,
       "minecraft:loot": "loot_tables/blockai/empty.json",
     },

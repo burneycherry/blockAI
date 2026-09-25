@@ -1,4 +1,4 @@
-pack.name=blockAI Village v0.13.8 (Behavior)
+pack.name=blockAI Village v0.13.9 (Behavior)
 pack.description=Give jobs to AI villagers and grow your village
 entity.blockai:storehouse.name=Village Storehouse
 action.interact.blockai_storehouse=Open storehouse
