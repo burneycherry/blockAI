@@ -1,6 +1,7 @@
 // 農家（農業パック予定）: 実った作物を収穫して植え直す。空いている畑には倉庫の種をまく
+import { system } from "@minecraft/server";
 import { registerJob } from "../core/registry.js";
-import { addCarry, center, dist2, lookAt, safeBlock } from "../core/blocks.js";
+import { addCarry, center, dist2, key, lookAt, safeBlock } from "../core/blocks.js";
 import { takeBlock, takeBlocksWhere, tasks } from "../core/tasks.js";
 
 /** 収穫できる作物: 収穫物と種 */
@@ -59,6 +60,24 @@ function pendingPlantTasks() {
   return n;
 }
 
+/** 合う種を持っていなくてまけなかった畑 → この tick までは種まきの仕事にしない（同じ畑を行き来し続けないように） */
+/** @type {Map<string, number>} */
+const skipUntil = new Map();
+/** まけなかった畑が欲しがっている種（倉庫から持ち出す） */
+/** @type {Set<string>} */
+const wanted = new Set();
+/** まけなかった畑を後回しにする時間（60秒） */
+const SKIP_TICKS = 20 * 60;
+
+/** @param {import("../core/registry.js").Pos} p */
+function skipped(p) {
+  const t = skipUntil.get(key(p));
+  if (t === undefined) return false;
+  if (t > system.currentTick) return true;
+  skipUntil.delete(key(p));
+  return false;
+}
+
 /** 緑の手（Lv8）のとき、作物がどこまで育った状態から始まるか */
 const GREEN_GROWTH = 3;
 
@@ -110,7 +129,11 @@ function plantOne(ctx) {
   const b = safeBlock(dim, p);
   if (!b || !ctx.opt("plant") || !isEmptyFarmland(dim, p)) return false;
   const seed = chooseSeed(dim, p, bag);
-  if (!seed) return false;
+  if (!seed) {
+    // 合う種が無い。しばらく後回しにして、次に倉庫へ行ったときに持ち出す
+    skipUntil.set(key(p), system.currentTick + SKIP_TICKS);
+    return false;
+  }
   b.setType(SEED_TO_CROP[seed]);
   if (ctx.skill("green")) {
     const placed = safeBlock(dim, p);
@@ -140,8 +163,10 @@ function chooseSeed(dim, p, bag) {
   }
   const ranked = Object.keys(votes).sort((a, b) => votes[b] - votes[a]);
   if (ranked.length > 0) {
-    // 周りと同じ種が無ければまかない（違う作物を混ぜない）
-    return (bag[ranked[0]] ?? 0) > 0 ? ranked[0] : undefined;
+    // 周りにある作物の種のうち、持っている物をまく（境目では多い方から。周りに無い作物は混ぜない）
+    const have = ranked.find((s) => (bag[s] ?? 0) > 0);
+    if (!have) wanted.add(ranked[0]);
+    return have;
   }
   // 周りに作物が無い新しい畑なら、持っている種をまく
   return Object.keys(SEED_TO_CROP).find((k) => (bag[k] ?? 0) > 0);
@@ -194,12 +219,12 @@ registerJob({
     }
 
     // 何も植わっていない畑 → 種まき
-    if (!here.isAir || pendingPlantTasks() >= MAX_PLANT_TASKS) return;
+    if (!here.isAir || skipped(cropPos) || pendingPlantTasks() >= MAX_PLANT_TASKS) return;
     const blocks = [];
     for (let dx = -2; dx <= 2; dx++) {
       for (let dz = -2; dz <= 2; dz++) {
         const p = { x: cropPos.x + dx, y: cropPos.y, z: cropPos.z + dz };
-        if (!isClaimed(p) && isEmptyFarmland(dim, p)) blocks.push(p);
+        if (!isClaimed(p) && !skipped(p) && isEmptyFarmland(dim, p)) blocks.push(p);
       }
     }
     blocks.sort((a, b) => dist2(b, cropPos) - dist2(a, cropPos));
@@ -208,21 +233,36 @@ registerJob({
 
   work(ctx) {
     const { e, task, watched } = ctx;
-    // 特技「一斉収穫」: 次に刈る作物を中心に、周り3×3（9マス）をまとめて刈り取る
+    // 特技「一斉収穫」: 次に刈る作物を含む3×3（9マス）のうち、実った作物が一番多い範囲をまとめて刈り取る
     // （ほかの仕事に入っている作物や、段違いの作物も含めて、実っていれば全部刈る）
     if (task.data.kind !== "plant" && ctx.skill("sweep")) {
       const next = task.blocks[task.blocks.length - 1];
       if (!next) return 0;
-      takeBlocksWhere(task, (p) => Math.abs(p.x - next.x) <= 1 && Math.abs(p.z - next.z) <= 1);
+      const dim = e.dimension;
+      /** @param {number} x @param {number} z */
+      const matureAt = (x, z) => {
+        for (const dy of [0, 1, -1]) {
+          const p = { x, y: next.y + dy, z };
+          const b = safeBlock(dim, p);
+          if (b && isMatureCrop(b)) return p;
+        }
+        return undefined;
+      };
+      // 端の作物を中心にすると畑の外を空振りするので、中心をずらして一番多く刈れる所を選ぶ
+      let best = { x: next.x, z: next.z, count: -1 };
+      for (let cx = next.x - 1; cx <= next.x + 1; cx++) {
+        for (let cz = next.z - 1; cz <= next.z + 1; cz++) {
+          let count = 0;
+          for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) if (matureAt(cx + dx, cz + dz)) count++;
+          if (count > best.count) best = { x: cx, z: cz, count };
+        }
+      }
+      takeBlocksWhere(task, (p) => Math.abs(p.x - best.x) <= 1 && Math.abs(p.z - best.z) <= 1);
       let n = 0;
       for (let dx = -1; dx <= 1; dx++) {
         for (let dz = -1; dz <= 1; dz++) {
-          for (const dy of [0, 1, -1]) {
-            if (harvestAt(ctx, { x: next.x + dx, y: next.y + dy, z: next.z + dz })) {
-              n++;
-              break;
-            }
-          }
+          const p = matureAt(best.x + dx, best.z + dz);
+          if (p && harvestAt(ctx, p)) n++;
         }
       }
       if (watched && n > 0) {
@@ -237,7 +277,10 @@ registerJob({
   // 倉庫から種を持ち出す
   onStorage(e, source, bag, opt) {
     if (!opt("plant")) return;
-    for (const seed of Object.keys(SEED_TO_CROP)) {
+    // まけなかった畑が欲しがっている種を先に持ち出す
+    const order = [...wanted, ...Object.keys(SEED_TO_CROP).filter((s) => !wanted.has(s))];
+    wanted.clear();
+    for (const seed of order) {
       const isFood = seed === "minecraft:carrot" || seed === "minecraft:potato";
       if (isFood && !opt("food_seeds")) continue;
       const room = BAG_MAX - seedCount(bag);
@@ -249,6 +292,8 @@ registerJob({
   },
 
   needsSupply(e, bag, opt) {
-    return opt("plant") && seedCount(bag) === 0 && pendingPlantTasks() > 0;
+    if (!opt("plant")) return false;
+    // 種が切れた、または畑が欲しがっている種を持っていない
+    return (seedCount(bag) === 0 && pendingPlantTasks() > 0) || [...wanted].some((s) => (bag[s] ?? 0) === 0);
   },
 });

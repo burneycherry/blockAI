@@ -151,8 +151,9 @@ world.afterEvents.entityHurt.subscribe(
   (ev) => {
     const e = ev.hurtEntity;
     if (!e.isValid) return;
-    // プレイヤー（村長の杖など）からのダメージは無かったことにする
-    if (ev.damageSource.damagingEntity?.typeId === "minecraft:player") {
+    // 村長の杖で叩いたとき（メニューを開く操作）のダメージは無かったことにする
+    const src = ev.damageSource.damagingEntity;
+    if (src instanceof Player && holdsStaff(src)) {
       const h = e.getComponent("minecraft:health");
       if (h && h.currentValue > 0) h.setCurrentValue(Math.min(h.effectiveMax, h.currentValue + ev.damage));
       return;

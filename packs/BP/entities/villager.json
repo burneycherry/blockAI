@@ -640,9 +640,19 @@
           {
             "on_damage": {
               "filters": {
-                "test": "is_family",
-                "subject": "other",
-                "value": "player"
+                "all_of": [
+                  {
+                    "test": "is_family",
+                    "subject": "other",
+                    "value": "player"
+                  },
+                  {
+                    "test": "has_equipment",
+                    "subject": "other",
+                    "domain": "hand",
+                    "value": "blockai:mayor_staff"
+                  }
+                ]
               }
             },
             "deals_damage": false
