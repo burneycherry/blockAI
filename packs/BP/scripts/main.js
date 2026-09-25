@@ -1,7 +1,7 @@
 import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/server";
 import { STAFF_ID, STOREHOUSE_ID, VILLAGER_ID } from "./core/config.js";
 import { getVillage } from "./core/village.js";
-import { cleanupMarkers, ensureStorageMarker, requestScan } from "./core/tasks.js";
+import { cleanupMarkers, requestScan } from "./core/tasks.js";
 import { getAllVillagers, getJob, initVillager, noteHurt, tickAssist, tickVillagers } from "./core/villager.js";
 import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
@@ -182,7 +182,6 @@ system.runInterval(() => {
   const village = getVillage();
   if (!village) return;
   if (tick % 40 === 0) {
-    ensureStorageMarker(village);
     const active = new Set(getAllVillagers().map((v) => getJob(v).id));
     requestScan(village, active);
   }

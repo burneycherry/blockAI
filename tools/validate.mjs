@@ -70,8 +70,19 @@ for (const f of files.filter((f) => f.endsWith(".lang"))) {
   if (line && !line.includes(`v${ver}`)) fail(`${f} の pack.name に v${ver} が入っていません`);
 }
 
+// メニューの絵（tools/gen-icons.mjs で作る RP の画像）が揃っているか
+const icons = readFileSync("packs/BP/scripts/core/icons.js", "utf8");
+for (const m of icons.matchAll(/\$\{C\}([a-z0-9_]+)/g)) {
+  try {
+    statSync(join("packs", "RP", "textures", "blockai", "icons", `${m[1]}.png`));
+  } catch (e) {
+    fail(`アイコン ${m[1]}.png がありません（node tools/gen-icons.mjs で作る）`);
+  }
+}
+
 if (errors > 0) {
   console.error(`${errors} 件の問題があります`);
   process.exit(1);
 }
 console.log("validate OK");
+

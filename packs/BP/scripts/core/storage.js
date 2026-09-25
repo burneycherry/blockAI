@@ -1,15 +1,14 @@
 // 村の倉庫
 //   - 専用の倉庫（blockai:storehouse）：村の中に何個も置ける。中身は全部の倉庫で共有し、容量は村レベルで増える
-//   - 登録したチェスト（旧方式）：専用の倉庫が1つも無いときだけ使う
-import { ItemStack, system, world } from "@minecraft/server";
+import { system, world } from "@minecraft/server";
 import { STOREHOUSE_ID } from "./config.js";
 import { villageLevel } from "./village.js";
-import { dist2h, safeBlock, standPosNear, storageStand } from "./blocks.js";
+import { dist2h, standPosNear } from "./blocks.js";
 
 /**
  * @typedef {{x:number,y:number,z:number}} Pos
  * @typedef {import("./village.js").VillageData} VillageData
- * @typedef {{ kind: "house", pos: Pos, entity: import("@minecraft/server").Entity } | { kind: "chest", pos: Pos }} StorePoint
+ * @typedef {{ pos: Pos, entity: import("@minecraft/server").Entity }} StorePoint
  * @typedef {{ count: (id: string) => number, take: (id: string, n: number) => number }} StoreSource
  */
 
@@ -130,15 +129,10 @@ export function forgetHouses() {
  * @returns {StorePoint[]}
  */
 export function storePoints(village) {
-  const houses = getHouses(village);
-  if (houses.length > 0) {
-    return houses.map((entity) => ({
-      kind: /** @type {const} */ ("house"),
-      entity,
-      pos: { x: Math.floor(entity.location.x), y: Math.floor(entity.location.y), z: Math.floor(entity.location.z) },
-    }));
-  }
-  return village.storage ? [{ kind: "chest", pos: village.storage }] : [];
+  return getHouses(village).map((entity) => ({
+    entity,
+    pos: { x: Math.floor(entity.location.x), y: Math.floor(entity.location.y), z: Math.floor(entity.location.z) },
+  }));
 }
 
 /** @param {VillageData | null} village */
@@ -170,7 +164,7 @@ export function nearestStorePoint(village, from) {
  * @param {StorePoint} p
  */
 export function standFor(dim, p) {
-  return p.kind === "house" ? standPosNear(dim, p.pos) : storageStand(dim, p.pos);
+  return standPosNear(dim, p.pos);
 }
 
 // ---------------------------------------------------------------
@@ -210,83 +204,24 @@ export function setLid(house, open) {
  * @returns {"ok" | "full" | "missing"}
  */
 export function depositInto(village, p, carry, onPut) {
-  if (p.kind === "house") {
-    if (!p.entity.isValid) return "missing";
-    openLid(p.entity);
-    let left = 0;
-    for (const id of Object.keys(carry)) {
-      const put = addToStock(village, id, carry[id]);
-      if (put > 0) onPut(id, put);
-      carry[id] -= put;
-      left += carry[id];
-    }
-    return left > 0 ? "full" : "ok";
-  }
-  const container = chestContainer(village, p.pos);
-  if (!container) return "missing";
+  if (!p.entity.isValid) return "missing";
+  openLid(p.entity);
   let left = 0;
   for (const id of Object.keys(carry)) {
-    let count = carry[id];
-    while (count > 0) {
-      const stack = new ItemStack(id, Math.min(count, 64));
-      const n = stack.amount;
-      const rest = container.addItem(stack);
-      const put = n - (rest ? rest.amount : 0);
-      count -= put;
-      if (put > 0) onPut(id, put);
-      if (rest) break;
-    }
-    carry[id] = count;
-    left += count;
+    const put = addToStock(village, id, carry[id]);
+    if (put > 0) onPut(id, put);
+    carry[id] -= put;
+    left += carry[id];
   }
-  world.getDimension(village.dim).playSound("random.chestclosed", { x: p.pos.x + 0.5, y: p.pos.y + 0.5, z: p.pos.z + 0.5 });
   return left > 0 ? "full" : "ok";
 }
 
 /**
- * @param {VillageData} village
- * @param {Pos} pos
- */
-export function chestContainer(village, pos) {
-  const block = safeBlock(world.getDimension(village.dim), pos);
-  return block?.getComponent("minecraft:inventory")?.container;
-}
-
-/**
- * 職業が材料を持ち出すための窓口（専用の倉庫なら共有の在庫、チェストならその中身）
+ * 職業が材料を持ち出すための窓口（共有の在庫）
  * @param {VillageData} village
  * @param {StorePoint} p
  * @returns {StoreSource | undefined}
  */
 export function sourceOf(village, p) {
-  if (p.kind === "house") {
-    return { count: (id) => getStock()[id] ?? 0, take: (id, n) => takeFromStock(id, n) };
-  }
-  const c = chestContainer(village, p.pos);
-  if (!c) return undefined;
-  return {
-    count(id) {
-      let n = 0;
-      for (let i = 0; i < c.size; i++) {
-        const it = c.getItem(i);
-        if (it?.typeId === id) n += it.amount;
-      }
-      return n;
-    },
-    take(id, n) {
-      let got = 0;
-      for (let i = 0; i < c.size && got < n; i++) {
-        const it = c.getItem(i);
-        if (!it || it.typeId !== id) continue;
-        const t = Math.min(it.amount, n - got);
-        got += t;
-        if (t >= it.amount) c.setItem(i, undefined);
-        else {
-          it.amount -= t;
-          c.setItem(i, it);
-        }
-      }
-      return got;
-    },
-  };
+  return { count: (id) => getStock()[id] ?? 0, take: (id, n) => takeFromStock(id, n) };
 }

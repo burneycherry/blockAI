@@ -13,13 +13,12 @@ import {
   reviveOn,
   setKeepLoaded,
   setRevive,
-  setStorage,
   setTestMode,
   villageLevel,
   workArea,
 } from "./village.js";
 import { syncTickingAreas } from "./loading.js";
-import { clearAllTasks, clearJobTasks, ensureStorageMarker } from "./tasks.js";
+import { clearAllTasks, clearJobTasks } from "./tasks.js";
 import {
   carryTotal,
   getAllVillagers,
@@ -138,7 +137,7 @@ export async function openMainMenu(player) {
     if (res.selection === 1) {
       foundVillage(player.dimension.id, player.location, player.name);
       await applyLoading(player);
-      player.sendMessage("§a[blockAI] 村ができました！ 次はチェストを置いて「倉庫を登録」しましょう。");
+      player.sendMessage("§a[blockAI] 村ができました！ 次は村長メニューの「村の倉庫を置く」で倉庫を置きましょう。");
       player.dimension.playSound("random.levelup", player.location);
     }
     return;
@@ -152,7 +151,6 @@ export async function openMainMenu(player) {
     jobCount[j] = (jobCount[j] || 0) + 1;
   }
   const jobText = Object.keys(jobCount).map((k) => `${k}:${jobCount[k]}`).join(" / ") || "なし";
-  const s = village.storage;
   const fallen = fallenNames();
   const body = [
     `村長: §e${village.mayor}§r`,
@@ -166,8 +164,8 @@ export async function openMainMenu(player) {
     })(),
     `中心: ${village.center.x}, ${village.center.y}, ${village.center.z}`,
     getHouses(village).length > 0
-      ? `倉庫: ${getHouses(village).length} / ${maxHouses(village)} 個（中身 ${usedSlots(getStock())} / ${capacitySlots(village)} マス）`
-      : `倉庫: ${s ? `チェスト ${s.x}, ${s.y}, ${s.z}${storageSpace(player, s)}` : "§c未設置§r（「村の倉庫を置く」で置けます）"}`,
+      ? `倉庫: ${getHouses(village).length} / ${maxHouses(village)} 個（${usedSlots(getStock())} / ${capacitySlots(village)} マス使用中）`
+      : "倉庫: §c未設置§r（「村の倉庫を置く」で置けます）",
   ].join("\n");
 
   const form = new ActionFormData()
@@ -212,7 +210,7 @@ export async function openMainMenu(player) {
 }
 
 /**
- * 倉庫を置く（専用の倉庫）か、チェストを倉庫にする（旧方式）
+ * 村の倉庫を置く
  * @param {Player} player
  */
 async function storageMenu(player) {
@@ -224,33 +222,14 @@ async function storageMenu(player) {
       [
         "§e村の倉庫§r：チェストの形の倉庫を、今見ている場所に置きます。",
         "・村の中にいくつも置けて（村レベルで増える）、中身はどの倉庫でも同じです。村人は一番近い倉庫に運びます。",
-        "・容量は村レベルで増えます（54 → 108 → 216 → 432 → 864 マス。1マス = 64個）。",
+        "・広さは村レベルで増えます（大きいチェスト 1 → 2 → 4 → 8 → 16 個分）。",
         "・倉庫をタップすると、取り出す・しまうができます。",
-        "",
-        "§7チェストを倉庫にする（旧方式）：村の倉庫が1つも無いときだけ使われます。§r",
       ].join("\n"),
     )
     .button(`村の倉庫を置く（${getHouses(v).length} / ${maxHouses(v)}）`)
-    .button("見ているチェストを倉庫にする（旧方式）")
     .show(player);
   if (res.canceled || res.selection === undefined) return;
-  if (res.selection === 0) placeStorehouse(player);
-  else registerStorage(player);
-}
-
-/**
- * 倉庫の空き（例: 「（空き 12 / 54 マス）」）。読み込まれていなければ空文字
- * @param {Player} player
- * @param {{x:number,y:number,z:number}} s
- */
-function storageSpace(player, s) {
-  try {
-    const v = getVillage();
-    const c = v ? world.getDimension(v.dim).getBlock(s)?.getComponent("minecraft:inventory")?.container : undefined;
-    return c ? `（空き ${c.emptySlotsCount} / ${c.size} マス）` : "";
-  } catch (err) {
-    return "";
-  }
+  placeStorehouse(player);
 }
 
 /** @param {Player} player */
@@ -622,27 +601,6 @@ async function dismiss(player, v) {
 }
 
 /** @param {Player} player */
-function registerStorage(player) {
-  const village = getVillage();
-  if (!village) return;
-  const hit = player.getBlockFromViewDirection({ maxDistance: 8 });
-  const block = hit?.block;
-  const container = block?.getComponent("minecraft:inventory")?.container;
-  if (!block || !container) {
-    player.sendMessage("§c[blockAI] チェスト（または樽）を見ながら「倉庫を登録」を選んでください。");
-    return;
-  }
-  if (player.dimension.id !== village.dim) {
-    player.sendMessage("§c[blockAI] 村と同じディメンションのチェストを選んでください。");
-    return;
-  }
-  setStorage({ x: block.x, y: block.y, z: block.z });
-  const v = getVillage();
-  if (v) ensureStorageMarker(v);
-  player.sendMessage(`§a[blockAI] 倉庫を登録しました (${block.x}, ${block.y}, ${block.z})。村人が集めた物がここに届きます。`);
-}
-
-/** @param {Player} player */
 async function showRecord(player) {
   const village = getVillage();
   if (!village) return;
@@ -679,7 +637,7 @@ async function showHelp(player) {
         "村長の杖を使い、村の中心を決めます。",
         "",
         "§e2. 村の倉庫を置く§r",
-        "村長メニューの「村の倉庫を置く」で、見ている場所に倉庫（木張りのチェスト）を置きます。村レベルが上がると、置ける数と容量が増えます（1マス = 64個）。中身はどの倉庫でも同じで、村人は一番近い倉庫へ運びます。倉庫をタップすると、取り出す・しまうができます。",
+        "村長メニューの「村の倉庫を置く」で、見ている場所に倉庫（木張りのチェスト）を置きます。村レベルが上がると、置ける数と広さが増えます（大きいチェスト1個分から16個分まで）。中身はどの倉庫でも同じで、村人は一番近い倉庫へ運びます。倉庫をタップすると、取り出す・しまうができます。",
         "",
         "§e3. 村人を雇う§r",
         "メニューから雇うか、スポーンエッグで呼びます。",

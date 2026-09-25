@@ -2,11 +2,10 @@
 import { EquipmentSlot, ItemStack } from "@minecraft/server";
 import { ActionFormData, MessageFormData, ModalFormData } from "@minecraft/server-ui";
 import { STAFF_ID, STOREHOUSE_ID } from "./config.js";
-import { getVillage, villageLevel } from "./village.js";
+import { getVillage } from "./village.js";
 import {
   addToStock,
   capacitySlots,
-  chestContainer,
   forgetHouses,
   getHouses,
   getStock,
@@ -88,24 +87,13 @@ async function storehouseMenu(player, house) {
     player.sendMessage("§e[blockAI] 先に村長の杖で村を作ってください。");
     return;
   }
-  const stock = getStock();
-  let total = 0;
-  for (const k of Object.keys(stock)) total += stock[k];
-  const lv = villageLevel(v).level;
-  const chest = v.storage ? chestContainer(v, v.storage) : undefined;
-  const body = [
-    `中身: §e${usedSlots(stock)} / ${capacitySlots(v)} マス§r（${fmt(total)} 個）`,
-    `置いている倉庫: ${getHouses(v).length} 個（村レベル${lv}では ${maxHouses(v)} 個まで置けます）`,
-    "§7中身はどの倉庫からでも同じです。村レベルが上がると広くなり、置ける数も増えます。1マス = 64個。§r",
-  ].join("\n");
   const form = new ActionFormData()
     .title("村の倉庫")
-    .body(body)
+    .body(stockSummary(v))
     .button("取り出す")
     .button("手に持っている物をしまう")
     .button("持ち物をまとめてしまう（ホットバー以外）")
     .button("この倉庫を片付ける");
-  if (chest) form.button("登録したチェストの中身を移す");
   const res = await form.show(player);
   if (res.canceled || res.selection === undefined) return;
   switch (res.selection) {
@@ -121,10 +109,35 @@ async function storehouseMenu(player, house) {
     case 3:
       await removeHouse(player, house);
       break;
-    case 4:
-      moveChest(player);
-      break;
   }
+}
+
+/** 村の倉庫の広さ（大きいチェスト1個 = 54マス） */
+const LARGE_CHEST = 54;
+
+/**
+ * 倉庫の中身と広さの説明
+ * @param {import("./village.js").VillageData} v
+ */
+export function stockSummary(v) {
+  const stock = getStock();
+  const kinds = Object.keys(stock).length;
+  let total = 0;
+  for (const k of Object.keys(stock)) total += stock[k];
+  const used = usedSlots(stock);
+  const cap = capacitySlots(v);
+  const rate = Math.min(1, used / cap);
+  const bar = Math.round(rate * 20);
+  const color = rate >= 0.9 ? "§c" : rate >= 0.7 ? "§6" : "§a";
+  return [
+    `入っている物: §e${fmt(total)} 個§r（${kinds} 種類）`,
+    `使っている場所: §e${used} / ${cap} マス§r（空き ${cap - used} マス）`,
+    `${color}${"|".repeat(bar)}§8${"|".repeat(20 - bar)}§r ${Math.round(rate * 100)}%`,
+    `§7「マス」はチェストのマスと同じです。1マスに同じ物を64個まで入れられます。今の広さは大きいチェスト ${cap / LARGE_CHEST} 個分です。§r`,
+    "",
+    `置いている倉庫: ${getHouses(v).length} / ${maxHouses(v)} 個`,
+    "§7中身はどの倉庫からでも同じです。村レベルが上がると、広くなり、置ける数も増えます。§r",
+  ].join("\n");
 }
 
 /** @param {Player} player */
@@ -226,26 +239,6 @@ function putAll(player) {
     }
   }
   player.sendMessage(`§a[blockAI] ${fmt(total)} 個しまいました。${full ? "§c倉庫がいっぱいで、入りきらない物がありました。" : ""}`);
-}
-
-/** 登録したチェスト（旧方式）の中身を、共有の倉庫へ移す @param {Player} player */
-function moveChest(player) {
-  const v = getVillage();
-  const c = v?.storage ? chestContainer(v, v.storage) : undefined;
-  if (!v || !c) return;
-  let total = 0;
-  for (let i = 0; i < c.size; i++) {
-    const item = c.getItem(i);
-    if (!item || !storable(item)) continue;
-    const put = addToStock(v, item.typeId, item.amount);
-    total += put;
-    if (put >= item.amount) c.setItem(i, undefined);
-    else if (put > 0) {
-      item.amount -= put;
-      c.setItem(i, item);
-    }
-  }
-  player.sendMessage(`§a[blockAI] チェストから ${fmt(total)} 個を倉庫へ移しました。`);
 }
 
 /**

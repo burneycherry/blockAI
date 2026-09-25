@@ -7,7 +7,6 @@ const KEY = "blockai:village";
  * @typedef {{
  *   dim: string,
  *   center: Pos,
- *   storage: Pos | null,
  *   mayor: string,
  *   founded: number,
  *   stats: Record<string, number>,
@@ -56,7 +55,6 @@ export function foundVillage(dim, center, mayor) {
   const data = {
     dim,
     center: floorPos(center),
-    storage: old && old.dim === dim ? old.storage : null,
     mayor,
     founded: old ? old.founded : Date.now(),
     stats: old ? old.stats : {},
@@ -68,14 +66,6 @@ export function foundVillage(dim, center, mayor) {
   };
   saveVillage(data);
   return data;
-}
-
-/** @param {Pos | null} pos */
-export function setStorage(pos) {
-  const v = getVillage();
-  if (!v) return;
-  v.storage = pos ? floorPos(pos) : null;
-  saveVillage(v);
 }
 
 /**

@@ -14,7 +14,7 @@ import {
 import { CHARACTERS } from "./characters.js";
 import { assignBed, bedUsable, isNight, markBed, releaseBed, unmarkBed } from "./beds.js";
 import { addStat, getVillage, workArea } from "./village.js";
-import { nearestTask, refreshStorageMarker, removeTask, resetScanWait, scanNear, tasks } from "./tasks.js";
+import { nearestTask, removeTask, resetScanWait, scanNear, tasks } from "./tasks.js";
 import { canStand, dist2h, standPosNear } from "./blocks.js";
 import { depositInto, hasStorage, nearestStorePoint, sourceOf, standFor } from "./storage.js";
 import { getJobDef, skillLevel } from "./registry.js";
@@ -633,7 +633,6 @@ function step(e, st, village, tick) {
       if (tick < st.nextWork) return;
       const result = deposit(e, village, carry);
       setCarry(e, carry);
-      refreshStorageMarker(village);
       if (result === "missing") {
         setMode(e, st, "idle", tick);
         st.status = "§c倉庫が無い！";

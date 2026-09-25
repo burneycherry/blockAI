@@ -1,9 +1,8 @@
 import { system, world } from "@minecraft/server";
-import { DEFAULT_MAX_TASKS, WP_STORAGE_ID, WP_TASK_ID } from "./config.js";
+import { DEFAULT_MAX_TASKS, WP_TASK_ID } from "./config.js";
 import { getJobDef, workingJobs } from "./registry.js";
 import { isProtected, workArea } from "./village.js";
-import { getHouses } from "./storage.js";
-import { dist2h, key, safeBlock, storageStand } from "./blocks.js";
+import { dist2h, key, safeBlock } from "./blocks.js";
 
 /**
  * @typedef {import("./registry.js").Task} Task
@@ -21,9 +20,6 @@ export const activeProps = new Set();
 
 /** ベッドの目印（夜だけ置く）のエンティティID */
 const homeWpIds = new Set();
-
-/** 倉庫マーカーのエンティティID */
-let storageWpId = /** @type {string | undefined} */ (undefined);
 
 // ---------------------------------------------------------------
 // 仕事の検索
@@ -257,52 +253,11 @@ export function nearestTask(jobId, dimId, from, maxDist = Infinity) {
   return best;
 }
 
-// ---------------------------------------------------------------
-// 倉庫マーカー
-// ---------------------------------------------------------------
-
-/**
- * 倉庫の位置にマーカーがあるようにする
- * @param {import("./village.js").VillageData} village
- */
-export function ensureStorageMarker(village) {
-  // 専用の倉庫があれば、村人は倉庫そのものを目指すので目印は要らない
-  if (!village.storage || getHouses(village).length > 0) {
-    removeEntityById(storageWpId);
-    storageWpId = undefined;
-    return;
-  }
-  const e = storageWpId ? world.getEntity(storageWpId) : undefined;
-  if (e && e.isValid) return;
-  const dim = world.getDimension(village.dim);
-  const s = village.storage;
-  if (!dim.isChunkLoaded(s)) return;
-  try {
-    // チェストの上に置くとチェストを開けにくくなるので、横の立ち位置に置く
-    const st = storageStand(dim, s);
-    const wp = dim.spawnEntity(WP_STORAGE_ID, { x: st.x + 0.5, y: st.y, z: st.z + 0.5 });
-    storageWpId = wp.id;
-  } catch (e2) {
-    storageWpId = undefined;
-  }
-}
-
-/**
- * 倉庫マーカーを作り直す（村人の追いかけ対象をリセットするため）
- * @param {import("./village.js").VillageData} village
- */
-export function refreshStorageMarker(village) {
-  removeEntityById(storageWpId);
-  storageWpId = undefined;
-  ensureStorageMarker(village);
-}
-
 /**
  * 管理していないマーカー（再起動前の残りなど）を消し、消えたマーカーは出し直す
  */
 export function cleanupMarkers() {
   const valid = new Set();
-  if (storageWpId) valid.add(storageWpId);
   for (const id of homeWpIds) valid.add(id);
   for (const t of tasks.values()) if (t.wpId) valid.add(t.wpId);
   for (const dimId of ["minecraft:overworld", "minecraft:nether", "minecraft:the_end"]) {

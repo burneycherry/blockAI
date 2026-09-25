@@ -66,7 +66,7 @@ function scanBeds(village) {
   } catch (err) {
     console.warn(`[blockAI] bed scan: ${err}`);
   }
-  const s = village.storage ?? village.center;
+  const s = village.center;
   found.sort((a, b) => dist2(a.head, s) - dist2(b.head, s));
   return found;
 }
