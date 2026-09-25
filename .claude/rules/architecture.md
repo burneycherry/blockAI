@@ -31,7 +31,7 @@
 - 作業のアニメーションは、スクリプトの `playAnimation("animation.blockai.human.swing")` で再生する
 
 ## 生成ツール
-- `tools/gen-entities.mjs`（村人の行動グループ・体力段階・マーカー）、`tools/gen-tree.mjs`（倒木）、`tools/gen-humans.mjs` + `tools/human-art.mjs`（村人の見た目）、`tools/gen-storehouse.mjs`（倉庫の見た目・音）、`tools/gen-icons.mjs`（メニューのブロックの絵）、`tools/make-test.mjs`（テスト用zip）、`tools/make_icon.mjs`（pack_icon。夕焼けの空・草ブロック・村人2人の頭。バニラのテクスチャが必要）、`tools/png.mjs`（PNG書き出し）、`tools/img.mjs`（PNG・TGA読み込み）
+- `tools/gen-entities.mjs`（村人の行動グループ・体力段階・マーカー）、`tools/gen-tree.mjs`（倒木）、`tools/gen-humans.mjs` + `tools/human-art.mjs`（村人の見た目）、`tools/gen-storehouse.mjs`（倉庫の見た目・音）、`tools/gen-icons.mjs`（メニューのブロックの絵）、`tools/make-test.mjs`（テスト用zip）、`tools/make_icon.mjs`（pack_icon。夕焼けの空・草ブロック・村人2人（木こり・無職。基本パックの絵なので有料パックの職業は出さない）の頭。バニラのテクスチャが必要）、`tools/png.mjs`（PNG書き出し）、`tools/img.mjs`（PNG・TGA読み込み）
 
 ## 職業の追加
 `jobs/xxx.js` で `registerJob({ id, name, skin, pack, status, reach, scan, work, options, skills, onStorage, needsSupply })`（skin は衣装番号、reach は作業を始められる距離、onStorage は `StoreSource` から材料を持ち出す） を呼び、`jobs/index.js` に import を足す。`scan` は1列の一番上のブロックから仕事を `addTask(stand, blocks, data)` で登録する。`work(ctx)` はこなした数を返す。

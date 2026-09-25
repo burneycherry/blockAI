@@ -1,4 +1,4 @@
-pack.name=blockAI 村づくり v0.13.13 (ビヘイビア)
+pack.name=blockAI 村づくり v0.13.14 (ビヘイビア)
 pack.description=AI村人に仕事を任せて村を発展させよう
 entity.blockai:storehouse.name=村の倉庫
 action.interact.blockai_storehouse=倉庫を開く

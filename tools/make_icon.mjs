@@ -1,4 +1,4 @@
-// pack_icon.png（256x256）を作る：夕焼けの空に、草ブロックの上に立つ村人2人の頭（斜め上から見た立体）
+// pack_icon.png（256x256）を作る：夕焼けの空に、草ブロックの上に立つ村人2人（木こり・無職）の頭（斜め上から見た立体）
 // 使い方: node tools/make_icon.mjs [バニラのテクスチャのフォルダ（blocks）]
 //   フォルダを渡さなければ Mojang/bedrock-samples から取ってくる（ネットが必要）
 //   村人の顔は packs/RP/textures/entity/blockai/human（gen-humans.mjs の生成物）から取る
@@ -150,10 +150,10 @@ const gx = (S - G) / 2;
 const gy = S - G + 14;
 cube(gx, gy, G, { top: grassTop, left: grassSide, right: grassSide });
 
-// 上の面の中心あたりに、村人2人（木こりのケンタと農家のサクラ）
+// 上の面の中心あたりに、村人2人（木こりのケンタと無職のサクラ。基本パックの絵なので農家は出さない）
 const topY = gy + G / 4;
 head("c2_lumberjack", S / 2 - 38, topY - 4, 86);
-head("c11_farmer", S / 2 + 38, topY + 8, 86);
+head("c11_casual", S / 2 + 38, topY + 8, 86);
 
 // 外枠：角を少し暗く（アイコンらしく締める）
 for (let y = 0; y < S; y++) {
