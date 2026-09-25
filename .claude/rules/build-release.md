@@ -5,4 +5,5 @@
 - エンティティ定義を変えたら `node tools/gen-entities.mjs` / `node tools/gen-tree.mjs` / `node tools/gen-humans.mjs` / `node tools/gen-storehouse.mjs` で作り直す（`villager.json`・`wp_task.json`・倒木関係・村人の見た目（RP の villager.entity.json、human.geo.json、human.animation.json、render_controllers、textures/entity/blockai/human）は生成物なので手で直さない）
 - pushすると GitHub Actions が Releases の `latest-<ブランチ名>` に `blockAI-v<版>.mcaddon`（配布用）と `blockAI-test-v<版>.zip`（テスト用）を置く。古いファイルは消す
 - テスト用 zip は `tools/make-test.mjs` が作る。フォルダ名 `blockAI_BP`/`blockAI_RP` と版 `[0,0,1]` を固定し、UUID は配布版と同じ。ユーザーは iPad の `development_*_packs` に上書きしてテストする（古い版が溜まらず、ワールドへの付け直しも不要）
+- `tools/gen-icons.mjs`（メニューのブロックの絵）と `tools/make_icon.mjs`（pack_icon）はバニラのテクスチャが要る。引数なしならネットから取る。ネットが使えないときは `git clone --depth 1 --filter=blob:none --sparse https://github.com/Mojang/bedrock-samples.git` → `git sparse-checkout set --skip-checks resource_pack/textures/blocks` し、そのフォルダを引数に渡す
 - 作業ブランチ：`claude/wonderful-goodall-ulkib1`
