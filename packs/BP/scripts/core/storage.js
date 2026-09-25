@@ -1,6 +1,6 @@
 // 村の倉庫
 //   - 専用の倉庫（blockai:storehouse）：村の中に何個も置ける。中身は全部の倉庫で共有し、容量は村レベルで増える
-import { system, world } from "@minecraft/server";
+import { ItemStack, system, world } from "@minecraft/server";
 import { STOREHOUSE_ID } from "./config.js";
 import { villageLevel } from "./village.js";
 import { dist2h, standPosNear } from "./blocks.js";
@@ -12,10 +12,9 @@ import { dist2h, standPosNear } from "./blocks.js";
  * @typedef {{ count: (id: string) => number, take: (id: string, n: number) => number }} StoreSource
  */
 
-/** 村レベルごとの容量（マス。1マス = 64個）と、置ける倉庫の数 */
+/** 村レベルごとの容量（スタック数。チェストの1マスに入る分が1スタック）と、置ける倉庫の数 */
 export const HOUSE_SLOTS = [54, 108, 216, 432, 864];
 export const HOUSE_COUNT = [1, 2, 3, 4, 5];
-const STACK = 64;
 const STOCK_KEY = "blockai:stock";
 
 // ---------------------------------------------------------------
@@ -44,10 +43,27 @@ function saveStock(stock) {
   world.setDynamicProperty(STOCK_KEY, JSON.stringify(stock));
 }
 
-/** 使っているマス数（チェストと同じく、種類ごとに64個で1マス） @param {Record<string, number>} stock */
+/** @type {Map<string, number>} */
+const stackCache = new Map();
+
+/** 1スタックの数（ふつうは64。卵・雪玉などは16） @param {string} id */
+export function stackSize(id) {
+  let n = stackCache.get(id);
+  if (n === undefined) {
+    try {
+      n = Math.max(1, new ItemStack(id, 1).maxAmount);
+    } catch (err) {
+      n = 64;
+    }
+    stackCache.set(id, n);
+  }
+  return n;
+}
+
+/** 使っているスタック数（チェストと同じく、種類ごとに数える） @param {Record<string, number>} stock */
 export function usedSlots(stock) {
   let n = 0;
-  for (const k of Object.keys(stock)) n += Math.ceil(stock[k] / STACK);
+  for (const k of Object.keys(stock)) n += Math.ceil(stock[k] / stackSize(k));
   return n;
 }
 
@@ -71,7 +87,8 @@ export function addToStock(village, id, n) {
   const stock = getStock();
   const cur = stock[id] ?? 0;
   const free = capacitySlots(village) - usedSlots(stock);
-  const room = Math.max(0, (Math.ceil(cur / STACK) + free) * STACK - cur);
+  const size = stackSize(id);
+  const room = Math.max(0, (Math.ceil(cur / size) + free) * size - cur);
   const put = Math.min(n, room);
   if (put > 0) {
     stock[id] = cur + put;

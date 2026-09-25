@@ -164,7 +164,7 @@ export async function openMainMenu(player) {
     })(),
     `中心: ${village.center.x}, ${village.center.y}, ${village.center.z}`,
     getHouses(village).length > 0
-      ? `倉庫: ${getHouses(village).length} / ${maxHouses(village)} 個（${usedSlots(getStock())} / ${capacitySlots(village)} マス使用中）`
+      ? `倉庫: ${getHouses(village).length} / ${maxHouses(village)} 個（${usedSlots(getStock())} / ${capacitySlots(village)} スタック使用中）`
       : "倉庫: §c未設置§r（「村の倉庫を置く」で置けます）",
   ].join("\n");
 

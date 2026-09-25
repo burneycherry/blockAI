@@ -112,7 +112,7 @@ async function storehouseMenu(player, house) {
   }
 }
 
-/** 村の倉庫の広さ（大きいチェスト1個 = 54マス） */
+/** 村の倉庫の広さ（大きいチェスト1個 = 54スタック） */
 const LARGE_CHEST = 54;
 
 /**
@@ -131,9 +131,9 @@ export function stockSummary(v) {
   const color = rate >= 0.9 ? "§c" : rate >= 0.7 ? "§6" : "§a";
   return [
     `入っている物: §e${fmt(total)} 個§r（${kinds} 種類）`,
-    `使っている場所: §e${used} / ${cap} マス§r（空き ${cap - used} マス）`,
+    `使っている量: §e${used} / ${cap} スタック§r（空き ${cap - used} スタック）`,
     `${color}${"|".repeat(bar)}§8${"|".repeat(20 - bar)}§r ${Math.round(rate * 100)}%`,
-    `§7「マス」はチェストのマスと同じです。1マスに同じ物を64個まで入れられます。今の広さは大きいチェスト ${cap / LARGE_CHEST} 個分です。§r`,
+    `§71スタックは、チェストの1マスに入る数です（ふつうは64個。卵・雪玉などは16個）。例：原木320個なら5スタック、321個なら6スタックです。今の広さは大きいチェスト ${cap / LARGE_CHEST} 個分（${cap} スタック）です。§r`,
     "",
     `置いている倉庫: ${getHouses(v).length} / ${maxHouses(v)} 個`,
     "§7中身はどの倉庫からでも同じです。村レベルが上がると、広くなり、置ける数も増えます。§r",
@@ -201,7 +201,7 @@ function putHand(player) {
     return;
   }
   if (!storable(item)) {
-    player.sendMessage("§e[blockAI] 道具や防具など、重ねられない物は倉庫に入りません。");
+    player.sendMessage("§e[blockAI] 道具・防具・ベッドなど、重ねられない物は倉庫に入りません。");
     return;
   }
   const put = addToStock(v, item.typeId, item.amount);
