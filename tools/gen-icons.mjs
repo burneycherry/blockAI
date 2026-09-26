@@ -47,6 +47,10 @@ const CUBES = {
   planks_spruce: ["planks_spruce.png", "planks_spruce.png"],
   planks_birch: ["planks_birch.png", "planks_birch.png"],
   wool_white: ["wool_colored_white.png", "wool_colored_white.png"],
+  // 農家の作物（ブロックのまま持ち帰る物）
+  pumpkin: ["pumpkin_top.png", "pumpkin_side.png"],
+  melon: ["melon_top.png", "melon_side.png"],
+  cactus: ["cactus_top.tga", "cactus_side.tga"],
 };
 
 /** @typedef {import("./img.mjs").Img} Img */

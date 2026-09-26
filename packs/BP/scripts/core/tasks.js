@@ -37,7 +37,7 @@ export function resetScanWait() {
 /**
  * 村の周り（職業ごとの仕事場）を少しずつ調べて、各職業の仕事を登録する
  * @param {import("./village.js").VillageData} village
- * @param {Set<string>} activeJobs 村人が就いている職業
+ * @param {Map<string, (id: string) => boolean>} activeJobs 村人が就いている職業 → その職業の村人の誰かが作業設定をONにしているか
  */
 export function requestScan(village, activeJobs) {
   if (scanning || system.currentTick < nextScanTick) return;
@@ -56,15 +56,16 @@ export function requestScan(village, activeJobs) {
     regions.set(k, r);
   }
   scanning = true;
-  system.runJob(scanJob(village, [...regions.values()]));
+  system.runJob(scanJob(village, [...regions.values()], activeJobs));
 }
 
 /**
  * @param {import("./village.js").VillageData} village
  * @param {{ area: import("./village.js").Area, jobs: import("./registry.js").JobDef[] }[]} regions
+ * @param {Map<string, (id: string) => boolean>} optOf
  * @returns {Generator<void, void, void>}
  */
-function* scanJob(village, regions) {
+function* scanJob(village, regions, optOf) {
   const before = tasks.size;
   try {
     const dim = world.getDimension(village.dim);
@@ -85,7 +86,7 @@ function* scanJob(village, regions) {
         const x = area.x + col.dx;
         const z = area.z + col.dz;
         if (++n % 24 === 0) yield;
-        scanColumn(village, dim, jobs, x, z, area.y);
+        scanColumn(village, dim, jobs, x, z, area.y, (jobId) => optOf.get(jobId) ?? (() => false));
       }
     }
   } finally {
@@ -103,8 +104,9 @@ function* scanJob(village, regions) {
  * @param {number} x
  * @param {number} z
  * @param {number} y 読み込み確認に使う高さ
+ * @param {(jobId: string) => (id: string) => boolean} optFor 職業ごとの作業設定
  */
-function scanColumn(village, dim, jobs, x, z, y) {
+function scanColumn(village, dim, jobs, x, z, y, optFor) {
   // 立ち入り禁止エリアは調べない
   if (isProtected(village, x, z)) return;
   try {
@@ -122,7 +124,7 @@ function scanColumn(village, dim, jobs, x, z, y) {
         const ok = blocks.filter((b) => !isProtected(village, b.x, b.z));
         addTask(job.id, dim, stand, ok, data ?? {});
       };
-      job.scan?.(dim, top, add, (p) => claimed.has(key(p)));
+      job.scan?.(dim, top, add, (p) => claimed.has(key(p)), optFor(job.id));
     }
   } catch (e) {
     // 読み込み中の場所などは無視
@@ -138,9 +140,10 @@ const NEAR_EXTRA = 3;
  * @param {import("./registry.js").JobDef} job
  * @param {import("@minecraft/server").Dimension} dim
  * @param {Pos} from
+ * @param {(id: string) => boolean} opt その村人の作業設定
  * @param {number} [r]
  */
-export function scanNear(village, job, dim, from, r = 8) {
+export function scanNear(village, job, dim, from, opt, r = 8) {
   if (!job.scan || dim.id !== village.dim) return;
   const limit = (job.maxTasks ?? DEFAULT_MAX_TASKS) + NEAR_EXTRA;
   const area = workArea(village, job.id);
@@ -155,7 +158,7 @@ export function scanNear(village, job, dim, from, r = 8) {
     const z = cz + c.dz;
     // 仕事場の外は探さない
     if ((x - area.x) ** 2 + (z - area.z) ** 2 > area.r * area.r) continue;
-    scanColumn(village, dim, [job], x, z, Math.floor(from.y));
+    scanColumn(village, dim, [job], x, z, Math.floor(from.y), () => opt);
   }
 }
 
@@ -238,12 +241,14 @@ export function countTasks(jobId) {
  * @param {string} dimId
  * @param {Pos} from
  * @param {number} [maxDist]
+ * @param {(t: Task) => boolean} [accept] 受け持つ仕事か
  */
-export function nearestTask(jobId, dimId, from, maxDist = Infinity) {
+export function nearestTask(jobId, dimId, from, maxDist = Infinity, accept) {
   let best = /** @type {Task | undefined} */ (undefined);
   let bestD = maxDist * maxDist;
   for (const t of tasks.values()) {
     if (t.jobId !== jobId || t.dim !== dimId || t.blocks.length === 0) continue;
+    if (accept && !accept(t)) continue;
     const d = dist2h(t.stand, from, true);
     if (d <= bestD) {
       best = t;

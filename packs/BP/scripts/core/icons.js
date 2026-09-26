@@ -45,6 +45,13 @@ const ICONS = {
   "minecraft:potato": `${I}potato`,
   "minecraft:beetroot": `${I}beetroot`,
   "minecraft:beetroot_seeds": `${I}seeds_beetroot`,
+  "minecraft:pumpkin_seeds": `${I}seeds_pumpkin`,
+  "minecraft:melon_seeds": `${I}seeds_melon`,
+  "minecraft:pumpkin": `${C}pumpkin`,
+  "minecraft:melon_block": `${C}melon`,
+  "minecraft:melon_slice": `${I}melon`,
+  "minecraft:cactus": `${C}cactus`,
+  "minecraft:bamboo": `${I}bamboo`,
   // そのほか
   "minecraft:stick": `${I}stick`,
   "minecraft:apple": `${I}apple`,

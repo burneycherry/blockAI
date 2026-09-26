@@ -34,7 +34,8 @@ export const MAX_SLOTS = 16;
  *   status?: { going: string, working: string, waiting: string },
  *   maxTasks?: number,
  *   reach?: number,
- *   scan?: (dim: Dimension, top: Block, addTask: AddTask, isClaimed: IsClaimed) => void,
+ *   scan?: (dim: Dimension, top: Block, addTask: AddTask, isClaimed: IsClaimed, opt: (id: string) => boolean) => void,
+ *   accepts?: (task: Task, opt: (id: string) => boolean) => boolean,
  *   options?: { id: string, label: string, default: boolean }[],
  *   skills?: Skill[],
  *   work?: (ctx: WorkContext) => number | boolean,
@@ -59,6 +60,8 @@ export const MAX_SLOTS = 16;
  *
  * status  頭の上に出す状態（向かっている / 作業中 / 仕事待ち）
  * scan    村の周りの1列（一番上のブロック）を見て、仕事があれば addTask で登録する
+ *         opt(id) はその職業の村人の誰かが作業設定 id をONにしているか（近くを探すときは、その村人の設定）
+ * accepts その村人が受け持つ仕事か（例: 農家は作業設定でONにした作物だけ）。無ければ全部受け持つ
  * options 村人ごとに切り替えられる作業の設定（例: 苗木を植え直す）
  * skills  レベルで覚える特技（Lv5・8・10 を想定）
  * work    仕事を1単位こなす。こなした数（または true=1）を返す。数だけ経験値が入る

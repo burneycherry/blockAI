@@ -664,6 +664,10 @@
           {
             "cause": "suffocation",
             "deals_damage": false
+          },
+          {
+            "cause": "contact",
+            "deals_damage": false
           }
         ]
       },

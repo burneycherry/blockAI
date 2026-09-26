@@ -143,6 +143,18 @@ export function setPaused(e, paused) {
   e.setDynamicProperty("blockai:paused", paused ? true : undefined);
 }
 
+/**
+ * その村人が受け持つ仕事かどうか（職業の accepts と作業設定で決まる）
+ * @param {Entity} e
+ * @param {import("./registry.js").JobDef} job
+ * @returns {((t: import("./registry.js").Task) => boolean) | undefined}
+ */
+function acceptOf(e, job) {
+  const accepts = job.accepts;
+  if (!accepts) return undefined;
+  return (t) => accepts(t, (id) => getOption(e, job, id));
+}
+
 /** @param {number} xp */
 export function levelOf(xp) {
   let lv = 1;
@@ -551,13 +563,14 @@ function step(e, st, village, tick) {
       return;
 
     case "to_task": {
-      const task = nearestTask(job.id, e.dimension.id, e.location);
+      const accept = acceptOf(e, job);
+      const task = nearestTask(job.id, e.dimension.id, e.location, Infinity, accept);
       if (!task) {
         decide(e, st, village, tick, job, total, cap);
         return;
       }
       // 仕事を始められる距離（木こりは葉に阻まれて幹まで寄れないことがあるので長め）
-      const near = nearestTask(job.id, e.dimension.id, e.location, job.reach ?? ARRIVE_DISTANCE);
+      const near = nearestTask(job.id, e.dimension.id, e.location, job.reach ?? ARRIVE_DISTANCE, accept);
       if (near) {
         st.taskId = near.id;
         setMode(e, st, "working", tick);
@@ -576,7 +589,7 @@ function step(e, st, village, tick) {
         if (task) removeTask(task.id);
         releaseTask(st);
         // 終わった場所の近くに次の仕事が無いか探す（隣の木から切る）
-        scanNear(village, job, e.dimension, e.location);
+        scanNear(village, job, e.dimension, e.location, (id) => getOption(e, job, id));
         decide(e, st, village, tick, job, total, cap);
         return;
       }
@@ -709,7 +722,7 @@ function decide(e, st, village, tick, job, total, cap) {
     goStorage(e, st, village, tick);
     return;
   }
-  const task = nearestTask(job.id, e.dimension.id, e.location);
+  const task = nearestTask(job.id, e.dimension.id, e.location, Infinity, acceptOf(e, job));
   if (task) {
     setMode(e, st, "to_task", tick);
     return;

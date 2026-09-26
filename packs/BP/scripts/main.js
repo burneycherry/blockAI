@@ -2,7 +2,7 @@ import { EquipmentSlot, ItemStack, Player, system, world } from "@minecraft/serv
 import { STAFF_ID, STOREHOUSE_BLOCK_ID, STOREHOUSE_ID, VILLAGER_ID } from "./core/config.js";
 import { getVillage } from "./core/village.js";
 import { cleanupMarkers, requestScan } from "./core/tasks.js";
-import { getAllVillagers, getJob, initVillager, noteHurt, tickAssist, tickVillagers } from "./core/villager.js";
+import { getAllVillagers, getJob, getOption, initVillager, noteHurt, tickAssist, tickVillagers } from "./core/villager.js";
 import { onVillagerDie, reviveFallen, saveRoster } from "./core/life.js";
 import { openMainMenu, openSoon, openVillagerMenu } from "./core/ui.js";
 import { openStorehouseMenu } from "./core/storage-ui.js";
@@ -220,7 +220,18 @@ system.runInterval(() => {
   if (tick % 40 === 0) {
     // 倉庫が押されたり回ったりしていたら、マスの真ん中・真っ直ぐに戻す
     for (const house of getHouses(village)) alignHouse(house);
-    const active = new Set(getAllVillagers().map((v) => getJob(v).id));
+    // 職業ごとに「誰かが作業設定をONにしているか」をまとめる（農家の作物の選択など）
+    /** @type {Map<string, ((id: string) => boolean)[]>} */
+    const byJob = new Map();
+    for (const v of getAllVillagers()) {
+      const job = getJob(v);
+      const list = byJob.get(job.id) ?? [];
+      list.push((id) => getOption(v, job, id));
+      byJob.set(job.id, list);
+    }
+    /** @type {Map<string, (id: string) => boolean>} */
+    const active = new Map();
+    for (const [id, list] of byJob) active.set(id, (opt) => list.some((f) => f(opt)));
     requestScan(village, active);
   }
   if (tick % 200 === 0) {
