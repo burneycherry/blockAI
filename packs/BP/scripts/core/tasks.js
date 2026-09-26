@@ -40,6 +40,8 @@ export function resetScanWait() {
  * @param {Map<string, (id: string) => boolean>} activeJobs 村人が就いている職業 → その職業の村人の誰かが作業設定をONにしているか
  */
 export function requestScan(village, activeJobs) {
+  // 期限（data.ttl）を過ぎた仕事は消す
+  for (const t of [...tasks.values()]) if (t.data.ttl && system.currentTick - t.created > t.data.ttl) removeTask(t.id);
   if (scanning || system.currentTick < nextScanTick) return;
   const wanted = workingJobs().filter(
     (j) => j.scan && activeJobs.has(j.id) && countTasks(j.id) < (j.maxTasks ?? DEFAULT_MAX_TASKS),
@@ -172,7 +174,7 @@ export function scanNear(village, job, dim, from, opt, r = 8) {
 function addTask(jobId, dim, stand, blocks, data) {
   if (blocks.length === 0 || blocks.some((b) => claimed.has(key(b)))) return;
   /** @type {Task} */
-  const task = { id: nextTaskId++, jobId, dim: dim.id, stand, blocks, data, wpId: undefined };
+  const task = { id: nextTaskId++, jobId, dim: dim.id, stand, blocks, data, wpId: undefined, created: system.currentTick };
   for (const b of blocks) claimed.add(key(b));
   task.wpId = spawnMarker(task);
   tasks.set(task.id, task);

@@ -1,5 +1,6 @@
 // 農家（農業パック予定）: 作業設定でONにした作物を収穫する
-//   畑の作物（小麦・ビートルート・ニンジン・ジャガイモ）：収穫してその場で植え直す。空いた畑には倉庫の種をまく
+//   畑の作物（小麦・ビートルート・ニンジン・ジャガイモ）：収穫して、道具袋の種を1つ使ってその場で植え直す（種が無ければ空けておく）
+//     空いた畑には倉庫の種をまく。3方以上を畑に囲まれた土（踏み荒らされた所）は耕し直す
 //   カボチャ・スイカ：茎につながった実だけ収穫する（茎は残す）。並びは作らず、茎の隣の空き地には何もまかない
 //   サトウキビ・竹・サボテン：一番下の1本を残して、その上を刈る
 import { system } from "@minecraft/server";
@@ -64,8 +65,17 @@ const cropOn = (opt, id) => opt(`crop_${id}`);
 const BAG_MAX = 32;
 /** ニンジン・ジャガイモは食料でもあるので、持ち出しは控えめに */
 const FOOD_SEED_MAX = 8;
-/** 種まきの仕事は同時にこれだけ（収穫の仕事の邪魔をしない） */
+/** 種まき・耕し直しの仕事は同時にこれだけ（収穫の仕事の邪魔をしない） */
 const MAX_PLANT_TASKS = 2;
+/** 種まき・耕し直しの仕事の期限（誰も受け持たないまま残らないように） */
+const PLANT_TTL = 20 * 60;
+/** 拾う物（踏み荒らしなどで落ちた作物や種） */
+const PICKUP = new Set(
+  CROP_IDS.flatMap((id) => {
+    const c = CROPS[id];
+    return c.kind === "tall" ? [c.item] : [c.item, c.seed];
+  }).concat(["minecraft:melon_slice"]),
+);
 /** 緑の手（Lv8）のとき、作物がどこまで育った状態から始まるか */
 const GREEN_GROWTH = 3;
 
@@ -163,8 +173,64 @@ function seedCount(bag) {
 
 function pendingPlantTasks() {
   let n = 0;
-  for (const t of tasks.values()) if (t.jobId === "farmer" && t.data.kind === "plant") n++;
+  for (const t of tasks.values()) if (t.jobId === "farmer" && (t.data.kind === "plant" || t.data.kind === "till")) n++;
   return n;
+}
+
+/**
+ * 0〜3個の種（本来の小麦・ビートルートと同じくらいの出方）
+ */
+function seedDrops() {
+  let n = 0;
+  for (let i = 0; i < 3; i++) if (Math.random() < 4 / 7) n++;
+  return n;
+}
+
+/**
+ * その場所にまくべき作物（茎があった場所ならその茎。それ以外は周りの畑の作物で一番多い物。周りに無ければ "any"）
+ * @param {Dimension} dim
+ * @param {Pos} p
+ */
+function wantedCrop(dim, p) {
+  const stemId = stems.get(key(p));
+  if (stemId) return stemId;
+  /** @type {Record<string, number>} */
+  const votes = {};
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2]]) {
+    const b = safeBlock(dim, { x: p.x + dx, y: p.y, z: p.z + dz });
+    const id = b && BY_BLOCK[b.typeId];
+    if (id && CROPS[id].kind === "field") votes[id] = (votes[id] ?? 0) + 1;
+  }
+  const ranked = Object.keys(votes).sort((a, b) => votes[b] - votes[a]);
+  return ranked[0] ?? "any";
+}
+
+/** 村人の道具袋に入っている種 → 最後に見た tick（仕事を作るとき、種を持っている農家がいるかの目安） */
+/** @type {Map<string, number>} */
+const heldSeeds = new Map();
+
+/**
+ * その作物の種が手に入るか（倉庫にある・誰かの道具袋にある）
+ * @param {string} seed
+ */
+function seedAvailable(seed) {
+  if ((getStock()[seed] ?? 0) > 0) return true;
+  const t = heldSeeds.get(seed);
+  return t !== undefined && system.currentTick - t <= RETRY_TICKS;
+}
+
+/**
+ * その作物の種（"any" はONにしている畑の作物のどれか）
+ * @param {string} crop
+ * @param {(id: string) => boolean} opt
+ * @returns {string[]}
+ */
+function seedsFor(crop, opt) {
+  if (crop === "any") {
+    return CROP_IDS.filter((id) => CROPS[id].kind === "field" && cropOn(opt, id)).map((id) => /** @type {FieldCrop} */ (CROPS[id]).seed);
+  }
+  const c = CROPS[crop];
+  return c && c.kind !== "tall" && cropOn(opt, crop) ? [c.seed] : [];
 }
 
 // ---------------------------------------------------------------
@@ -208,15 +274,26 @@ function harvestAt(ctx, p, id) {
   const crop = CROPS[id];
   if (crop.kind === "field") {
     if (!isMatureField(b)) return false;
-    b.setPermutation(b.permutation.withState("growth", ctx.skill("green") ? GREEN_GROWTH : 0));
     let n = crop.min + Math.floor(Math.random() * (crop.max - crop.min + 1));
     if (ctx.skill("bumper") && Math.random() < 0.33) n += 1;
+    const bag = ctx.bag;
+    // 取れた種は、植え直し・種まきに使うので道具袋へ（いっぱいなら倉庫へ運ぶ）
+    // ニンジン・ジャガイモは取れた物そのものが種なので、植え直す1つ分だけ袋を通す
+    const seeds = crop.seed === crop.item ? 1 : seedDrops();
+    if (crop.seed === crop.item) n -= 1;
+    const toBag = Math.max(0, Math.min(seeds, BAG_MAX - seedCount(bag)));
+    if (toBag > 0) bag[crop.seed] = (bag[crop.seed] ?? 0) + toBag;
+    addCarry(carry, crop.seed, seeds - toBag);
     addCarry(carry, crop.item, n);
-    if (crop.seed !== crop.item && Math.random() < 0.5) {
-      // 取れた種は、種まきに使うので道具袋へ（いっぱいなら倉庫へ運ぶ）
-      if (ctx.opt("plant") && seedCount(ctx.bag) < BAG_MAX) ctx.bag[crop.seed] = (ctx.bag[crop.seed] ?? 0) + 1;
-      else addCarry(carry, crop.seed, 1);
+    // 植え直すときは種を1つ使う。足りなければ持ち物の種、それも無ければ空けておく
+    if ((bag[crop.seed] ?? 0) > 0) bag[crop.seed] -= 1;
+    else if ((carry[crop.seed] ?? 0) > 0) carry[crop.seed] -= 1;
+    else {
+      b.setType("minecraft:air");
+      if (watched) dim.playSound("dig.grass", center(p));
+      return true;
     }
+    b.setPermutation(b.permutation.withState("growth", ctx.skill("green") ? GREEN_GROWTH : 0));
   } else if (crop.kind === "fruit") {
     if (!isAttachedFruit(dim, b)) return false;
     b.setType("minecraft:air");
@@ -369,6 +446,38 @@ function chooseSeed(dim, p, bag, opt) {
     .find((s) => (bag[s] ?? 0) > 0);
 }
 
+/**
+ * 踏み荒らされて土に戻った所か（上が空いていて、4方のうち3方以上が畑の土）
+ * @param {Dimension} dim
+ * @param {Pos} p 土の場所
+ */
+function isTrampled(dim, p) {
+  const b = safeBlock(dim, p);
+  const above = safeBlock(dim, { x: p.x, y: p.y + 1, z: p.z });
+  if (!b || b.typeId !== "minecraft:dirt" || !above || !above.isAir) return false;
+  let n = 0;
+  for (const [dx, dz] of SIDES) if (safeBlock(dim, { x: p.x + dx, y: p.y, z: p.z + dz })?.typeId === "minecraft:farmland") n++;
+  return n >= 3;
+}
+
+/**
+ * 土を耕し直す
+ * @param {WorkContext} ctx
+ */
+function tillOne(ctx) {
+  const { e, task, watched } = ctx;
+  const p = takeBlock(task);
+  if (!p) return false;
+  const dim = e.dimension;
+  if (!isTrampled(dim, p)) return false;
+  safeBlock(dim, p)?.setType("minecraft:farmland");
+  if (watched) {
+    dim.playSound("use.gravel", center(p));
+    lookAt(e, center(p));
+  }
+  return true;
+}
+
 // ---------------------------------------------------------------
 // 登録
 // ---------------------------------------------------------------
@@ -380,7 +489,8 @@ registerJob({
   pack: "農業パック",
   description:
     "作業設定でONにした作物を収穫します。畑の作物は植え直し、空いている畑には倉庫の種をまきます（新しく耕すことはしません）。カボチャ・スイカは実だけ、サトウキビ・竹・サボテンは根元を残して刈ります。",
-  status: { going: "畑に向かっている", working: "畑仕事中", waiting: "実った作物を待っている" },
+  status: { going: "畑に向かっている", working: "農作業中", waiting: "実った作物を待っている" },
+  pickup: PICKUP,
   maxTasks: 12,
   options: [
     { id: "plant", label: "空いている畑に倉庫の種をまく", default: true },
@@ -392,8 +502,14 @@ registerJob({
     { id: "sweep", level: 10, name: "一斉収穫", description: "刈る所を含む3×3（9マス）の、刈れる作物をまとめて刈り取る" },
   ],
 
-  accepts(task, opt) {
-    if (task.data.kind === "plant") return opt("plant");
+  accepts(task, opt, bag) {
+    for (const k of Object.keys(bag)) if (bag[k] > 0) heldSeeds.set(k, system.currentTick);
+    if (task.data.kind === "till") return opt("plant");
+    if (task.data.kind === "plant") {
+      // まける種を持っている（無ければ倉庫にある）ときだけ。無ければ育つのを待つ（うろうろしない）
+      if (!opt("plant")) return false;
+      return seedsFor(task.data.crop, opt).some((s) => (bag[s] ?? 0) > 0 || (getStock()[s] ?? 0) > 0);
+    }
     return cropOn(opt, task.data.crop);
   },
 
@@ -415,6 +531,15 @@ registerJob({
     if (fruitId && CROPS[fruitId].kind === "fruit") {
       const p = { x: top.x, y: top.y, z: top.z };
       if (cropOn(opt, fruitId) && !isClaimed(p) && isAttachedFruit(dim, top)) addTask(p, [p], { kind: "harvest", crop: fruitId });
+      return;
+    }
+
+    // 踏み荒らされて土に戻った所（3方以上が畑の土に囲まれている）→ 耕し直す
+    if (top.typeId === "minecraft:dirt" && opt("plant")) {
+      const p = { x: top.x, y: top.y, z: top.z };
+      if (!isClaimed(p) && pendingPlantTasks() < MAX_PLANT_TASKS && isTrampled(dim, p)) {
+        addTask({ x: p.x, y: p.y + 1, z: p.z }, [p], { kind: "till", ttl: PLANT_TTL });
+      }
       return;
     }
 
@@ -455,6 +580,9 @@ registerJob({
 
     // 何も植わっていない畑 → 種まき（茎の隣は実がなる場所なので空けておく。ただし茎があった場所はまき直す）
     if (!opt("plant") || !here.isAir || skipped(cropPos) || pendingPlantTasks() >= MAX_PLANT_TASKS) return;
+    // まく作物をONにしている農家がいて、その種が手に入るときだけ仕事にする
+    const crop = wantedCrop(dim, cropPos);
+    if (!seedsFor(crop, opt).some(seedAvailable)) return;
     /** @param {Pos} p */
     const plantable = (p) =>
       !isClaimed(p) && !skipped(p) && isEmptyFarmland(dim, p) && (stems.has(key(p)) || !nextToStem(dim, p));
@@ -467,12 +595,13 @@ registerJob({
       }
     }
     blocks.sort((a, b) => dist2(b, cropPos) - dist2(a, cropPos));
-    addTask(cropPos, blocks, { kind: "plant" });
+    addTask(cropPos, blocks, { kind: "plant", crop, ttl: PLANT_TTL });
   },
 
   work(ctx) {
     const { task } = ctx;
     if (task.data.kind === "plant") return plantOne(ctx);
+    if (task.data.kind === "till") return tillOne(ctx);
     if (ctx.skill("sweep")) return sweep(ctx);
     const p = takeBlock(task);
     return p ? harvestAt(ctx, p, task.data.crop) : false;
@@ -480,6 +609,11 @@ registerJob({
 
   // 倉庫から種を持ち出す（ONにしている作物の分だけ）
   onStorage(e, source, bag, opt) {
+    // ONにしていない作物の種は倉庫に戻す
+    for (const s of Object.keys(bag)) {
+      const id = BY_SEED[s];
+      if (id && !cropOn(opt, id) && bag[s] > 0) bag[s] -= source.put(s, bag[s]);
+    }
     if (!opt("plant")) return;
     const seeds = CROP_IDS.map((id) => CROPS[id])
       .filter((c) => c.kind !== "tall" && cropOn(opt, BY_BLOCK[c.block]))

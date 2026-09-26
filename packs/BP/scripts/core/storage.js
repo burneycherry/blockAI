@@ -9,7 +9,7 @@ import { dist2h, standPosNear } from "./blocks.js";
  * @typedef {{x:number,y:number,z:number}} Pos
  * @typedef {import("./village.js").VillageData} VillageData
  * @typedef {{ pos: Pos, entity: import("@minecraft/server").Entity }} StorePoint
- * @typedef {{ count: (id: string) => number, take: (id: string, n: number) => number }} StoreSource
+ * @typedef {{ count: (id: string) => number, take: (id: string, n: number) => number, put: (id: string, n: number) => number }} StoreSource
  */
 
 /** 村レベルごとの容量（スタック数。チェストの1マスに入る分が1スタック）と、置ける倉庫の数 */
@@ -315,11 +315,11 @@ export function depositInto(village, p, carry, onPut) {
 }
 
 /**
- * 職業が材料を持ち出すための窓口（共有の在庫）
+ * 職業が材料を持ち出す・戻すための窓口（共有の在庫）
  * @param {VillageData} village
  * @param {StorePoint} p
  * @returns {StoreSource | undefined}
  */
 export function sourceOf(village, p) {
-  return { count: (id) => getStock()[id] ?? 0, take: (id, n) => takeFromStock(id, n) };
+  return { count: (id) => getStock()[id] ?? 0, take: (id, n) => takeFromStock(id, n), put: (id, n) => addToStock(village, id, n) };
 }

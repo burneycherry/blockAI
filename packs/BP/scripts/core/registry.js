@@ -19,7 +19,8 @@ export const MAX_SLOTS = 16;
  *   stand: Pos,
  *   blocks: Pos[],
  *   data: Record<string, any>,
- *   wpId: string | undefined
+ *   wpId: string | undefined,
+ *   created: number
  * }} Task
  *
  * @typedef {(stand: Pos, blocks: Pos[], data?: Record<string, any>) => void} AddTask
@@ -35,7 +36,8 @@ export const MAX_SLOTS = 16;
  *   maxTasks?: number,
  *   reach?: number,
  *   scan?: (dim: Dimension, top: Block, addTask: AddTask, isClaimed: IsClaimed, opt: (id: string) => boolean) => void,
- *   accepts?: (task: Task, opt: (id: string) => boolean) => boolean,
+ *   accepts?: (task: Task, opt: (id: string) => boolean, bag: Record<string, number>) => boolean,
+ *   pickup?: Set<string>,
  *   options?: { id: string, label: string, default: boolean }[],
  *   skills?: Skill[],
  *   work?: (ctx: WorkContext) => number | boolean,
@@ -62,12 +64,14 @@ export const MAX_SLOTS = 16;
  * scan    村の周りの1列（一番上のブロック）を見て、仕事があれば addTask で登録する
  *         opt(id) はその職業の村人の誰かが作業設定 id をONにしているか（近くを探すときは、その村人の設定）
  * accepts その村人が受け持つ仕事か（例: 農家は作業設定でONにした作物だけ）。無ければ全部受け持つ
+ * pickup  近くに落ちていたら拾う物（アイテムのID。例: 農家は作物や種）
+ *         仕事の data.ttl（tick）を付けると、その時間を過ぎた仕事は消える（誰も受け持たない仕事が残り続けないように）
  * options 村人ごとに切り替えられる作業の設定（例: 苗木を植え直す）
  * skills  レベルで覚える特技（Lv5・8・10 を想定）
  * work    仕事を1単位こなす。こなした数（または true=1）を返す。数だけ経験値が入る
  *         ctx.opt(id) で作業設定、ctx.skill(id) で特技を覚えているか、ctx.wait(tick) で次の作業を遅らせる
  *         ctx.bag は倉庫から持ち出した道具・材料（種など）。倉庫には戻さない
- * onStorage 倉庫に荷物を入れた後に呼ばれる。倉庫から材料を bag に持ち出せる
+ * onStorage 倉庫に荷物を入れた後に呼ばれる。倉庫から材料を bag に持ち出せる（source.put で戻せる）
  * needsSupply 材料が足りず、倉庫へ取りに行きたいときに true
  */
 

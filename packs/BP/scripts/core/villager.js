@@ -144,6 +144,34 @@ export function setPaused(e, paused) {
 }
 
 /**
+ * 近くに落ちている物（職業ごとに決めた物だけ）を拾って持ち物に入れる。最後は倉庫へ運ばれる
+ * @param {Entity} e
+ * @param {Set<string>} ids
+ * @param {Record<string, number>} carry
+ * @param {number} cap
+ */
+function pickUp(e, ids, carry, cap) {
+  let total = carryTotal(carry);
+  if (total >= cap) return;
+  let changed = false;
+  for (const item of e.dimension.getEntities({ type: "minecraft:item", location: e.location, maxDistance: 3 })) {
+    const stack = item.getComponent("minecraft:item")?.itemStack;
+    if (!stack || !ids.has(stack.typeId)) continue;
+    const n = Math.min(stack.amount, cap - total);
+    if (n <= 0) break;
+    if (n < stack.amount) {
+      stack.amount -= n;
+      item.dimension.spawnItem(stack, item.location);
+    }
+    item.remove();
+    carry[stack.typeId] = (carry[stack.typeId] ?? 0) + n;
+    total += n;
+    changed = true;
+  }
+  if (changed) setCarry(e, carry);
+}
+
+/**
  * その村人が受け持つ仕事かどうか（職業の accepts と作業設定で決まる）
  * @param {Entity} e
  * @param {import("./registry.js").JobDef} job
@@ -152,7 +180,8 @@ export function setPaused(e, paused) {
 function acceptOf(e, job) {
   const accepts = job.accepts;
   if (!accepts) return undefined;
-  return (t) => accepts(t, (id) => getOption(e, job, id));
+  const bag = getBag(e);
+  return (t) => accepts(t, (id) => getOption(e, job, id), bag);
 }
 
 /** @param {number} xp */
@@ -550,6 +579,7 @@ function step(e, st, village, tick) {
     return;
   }
   const status = job.status;
+  if (job.pickup) pickUp(e, job.pickup, carry, cap);
   // 作業休止にしたら、今の仕事をやめる（荷物があれば倉庫へしまってから休む）
   if (isPaused(e) && (st.mode === "to_task" || st.mode === "working")) {
     releaseTask(st);

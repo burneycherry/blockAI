@@ -1,17 +1,17 @@
 {
   "format_version": 2,
   "header": {
-    "name": "blockAI 村づくり v0.14.0 (リソース)",
+    "name": "blockAI 村づくり v0.14.1 (リソース)",
     "description": "pack.description",
     "uuid": "8604d005-b6c7-47ba-b8bd-d58753fdfdb7",
-    "version": [0, 14, 0],
+    "version": [0, 14, 1],
     "min_engine_version": [1, 21, 100]
   },
   "modules": [
     {
       "type": "resources",
       "uuid": "bc99e308-5713-474c-b035-c255318812e3",
-      "version": [0, 14, 0]
+      "version": [0, 14, 1]
     }
   ]
 }
