@@ -632,6 +632,8 @@ registerJob({
   },
 
   needsSupply(e, bag, opt) {
+    // 作物の設定を変えて、ONにしていない作物の種を持っている → 一度倉庫に戻して、ONの作物の種に持ち替える
+    if (Object.keys(bag).some((s) => bag[s] > 0 && BY_SEED[s] && !cropOn(opt, BY_SEED[s]))) return true;
     if (!opt("plant")) return false;
     // 種が切れた、または畑が欲しがっている種を持っていない（倉庫にあるときだけ取りに行く）
     const stock = getStock();
