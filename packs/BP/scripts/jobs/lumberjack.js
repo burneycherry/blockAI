@@ -1,5 +1,7 @@
 // 木こり（基本パック）: 村の周りの自然の木を切り、苗木を植え直す
 import { system } from "@minecraft/server";
+import { RETRY_TICKS } from "../core/config.js";
+import { getStock } from "../core/storage.js";
 import { registerJob } from "../core/registry.js";
 import { addCarry, center, key, lookAt, safeBlock, standPosNear } from "../core/blocks.js";
 import { activeProps, takeBlock } from "../core/tasks.js";
@@ -45,6 +47,61 @@ const WOODS = [
   "minecraft:poplar_log",
 ];
 
+/** 苗木（道具袋に持つ分。合計） */
+const BAG_MAX = 32;
+/** 倉庫から1種類あたりに持ち出す苗木の数 */
+const TAKE_EACH = 8;
+/** 植え直しの仕事が消えるまで（誰も受け持たないとき） */
+const PLANT_TTL = 1200;
+/** 近くに落ちていたら拾う物（葉が自然に消えて落ちた苗木など） */
+const PICKUP = new Set([...Object.values(SAPLINGS), "minecraft:stick", "minecraft:apple"]);
+
+/** 苗木が無くて植え直せなかった根元 → 苗木の種類 */
+/** @type {Map<string, { p: import("../core/registry.js").Pos, sapling: string }>} */
+const unplanted = new Map();
+/** 最近切った・見かけた木の苗木 → tick（倉庫から持ち出す種類の目安） */
+/** @type {Map<string, number>} */
+const recentSaplings = new Map();
+/** 苗木を道具袋に持っている木こりがいた tick */
+/** @type {Map<string, number>} */
+const heldSaplings = new Map();
+
+/** @param {Record<string, number>} bag */
+function saplingCount(bag) {
+  let n = 0;
+  for (const s of PICKUP) if (s !== "minecraft:stick" && s !== "minecraft:apple") n += bag[s] ?? 0;
+  return n;
+}
+
+/** @param {string} id */
+function isSapling(id) {
+  return Object.values(SAPLINGS).includes(id);
+}
+
+/** 苗木が手に入るか（倉庫にある・誰かの道具袋にある） @param {string} s */
+function saplingAvailable(s) {
+  if ((getStock()[s] ?? 0) > 0) return true;
+  const t = heldSaplings.get(s);
+  return t !== undefined && system.currentTick - t <= RETRY_TICKS;
+}
+
+/** 苗木を1つ使う（道具袋 → 持ち物の順）。無ければ false
+ * @param {Record<string, number>} bag
+ * @param {Record<string, number>} carry
+ * @param {string} s
+ */
+function useSapling(bag, carry, s) {
+  if ((bag[s] ?? 0) > 0) {
+    bag[s] -= 1;
+    return true;
+  }
+  if ((carry[s] ?? 0) > 0) {
+    carry[s] -= 1;
+    return true;
+  }
+  return false;
+}
+
 /** @param {string} id */
 function isLog(id) {
   return id.endsWith("_log") && !id.includes("stripped");
@@ -73,10 +130,11 @@ registerJob({
   name: "木こり",
   skin: 2,
   pack: "基本",
-  description: "村の周りの自然の木を切り、苗木を植え直して原木を倉庫へ運びます。建物の柱は切りません。",
+  description: "村の周りの自然の木を切り、倉庫から持ち出した苗木で植え直して、原木を倉庫へ運びます。建物の柱は切りません。",
   status: { going: "木を切りに向かっている", working: "伐採中", waiting: "切れる木を探している" },
   maxTasks: 6,
   reach: 4,
+  pickup: PICKUP,
   options: [
     { id: "replant", label: "切った後に苗木を植え直す", default: true },
     { id: "leaf_blocks", label: "葉っぱ払い（Lv5）のとき、葉っぱのブロックも持ち帰る", default: false },
@@ -87,7 +145,30 @@ registerJob({
     { id: "felling", level: 10, name: "倒木", description: "木を根元から一気に切り倒す。木が倒れて消えると、原木がまとめて手に入る" },
   ],
 
-  scan(dim, top, addTask, isClaimed) {
+  accepts(task, opt, bag) {
+    for (const k of Object.keys(bag)) if (bag[k] > 0 && isSapling(k)) heldSaplings.set(k, system.currentTick);
+    if (task.data.kind !== "plant") return true;
+    // 苗木を持っている（無ければ倉庫にある）ときだけ植えに行く
+    const s = task.data.sapling;
+    return opt("replant") && ((bag[s] ?? 0) > 0 || (getStock()[s] ?? 0) > 0);
+  },
+
+  scan(dim, top, addTask, isClaimed, opt) {
+    // 苗木が無くて植え直せなかった根元 → 苗木が手に入れば植えに行く
+    if (SOIL.has(top.typeId)) {
+      const p = { x: top.x, y: top.y + 1, z: top.z };
+      const u = unplanted.get(key(p));
+      if (!u) return;
+      const here = safeBlock(dim, p);
+      if (!here || !here.isAir) {
+        unplanted.delete(key(p));
+        return;
+      }
+      if (opt("replant") && !isClaimed(p) && saplingAvailable(u.sapling)) {
+        addTask(standPosNear(dim, p), [p], { kind: "plant", sapling: u.sapling, ttl: PLANT_TTL });
+      }
+      return;
+    }
     if (!isLeaves(top.typeId) && !isLog(top.typeId)) return;
     const { x, z } = top;
     // 上から下へ幹の根元を探す
@@ -106,6 +187,8 @@ registerJob({
       if (!isPassable(b.typeId)) return;
     }
     if (!base || isClaimed(base)) return;
+    const baseType = safeBlock(dim, base)?.typeId;
+    if (baseType && SAPLINGS[baseType]) recentSaplings.set(SAPLINGS[baseType], system.currentTick);
 
     // 幹をたどって木全体の原木を集める
     const logs = [];
@@ -154,6 +237,7 @@ registerJob({
 
   work(ctx) {
     const { e, task, carry, watched, opt } = ctx;
+    if (task.data.kind === "plant") return plantLater(ctx);
     // 特技「倒木」: 木を丸ごと切り倒す
     if (ctx.skill("felling")) return fellTree(ctx);
 
@@ -172,7 +256,88 @@ registerJob({
     if (task.blocks.length === 0) afterTree(ctx, logType);
     return true;
   },
+
+  // 倉庫から苗木を持ち出す（最近切った木の種類と、植え直せなかった根元の分）
+  onStorage(e, source, bag, opt) {
+    if (!opt("replant")) {
+      // 植え直さないなら苗木は倉庫へ戻す
+      for (const s of Object.keys(bag)) if (isSapling(s) && bag[s] > 0) bag[s] -= source.put(s, bag[s]);
+      return;
+    }
+    for (const s of wantedSaplings()) {
+      const room = BAG_MAX - saplingCount(bag);
+      const limit = Math.min(room, TAKE_EACH - (bag[s] ?? 0));
+      if (limit <= 0) continue;
+      const got = source.take(s, limit);
+      if (got > 0) bag[s] = (bag[s] ?? 0) + got;
+    }
+  },
+
+  needsSupply(e, bag, opt) {
+    if (!opt("replant")) return Object.keys(bag).some((s) => isSapling(s) && bag[s] > 0);
+    const stock = getStock();
+    return wantedSaplings().some((s) => (bag[s] ?? 0) === 0 && (stock[s] ?? 0) > 0);
+  },
 });
+
+/** 持っておきたい苗木（植え直せなかった根元の分を先に。最近切った木は5分以内） */
+function wantedSaplings() {
+  const out = new Set([...unplanted.values()].map((u) => u.sapling));
+  for (const [s, t] of recentSaplings) {
+    if (system.currentTick - t <= 6000) out.add(s);
+    else recentSaplings.delete(s);
+  }
+  return [...out];
+}
+
+/**
+ * 植え直せなかった根元に、後から苗木を植える
+ * @param {import("../core/registry.js").WorkContext} ctx
+ */
+function plantLater(ctx) {
+  const { e, task, carry, watched } = ctx;
+  const p = takeBlock(task);
+  if (!p) return false;
+  const dim = e.dimension;
+  const s = task.data.sapling;
+  const b = safeBlock(dim, p);
+  const below = safeBlock(dim, { x: p.x, y: p.y - 1, z: p.z });
+  if (!b || !below || !b.isAir || !SOIL.has(below.typeId)) {
+    unplanted.delete(key(p));
+    return false;
+  }
+  if (!useSapling(ctx.bag, carry, s)) return false;
+  try {
+    b.setType(s);
+  } catch (err) {
+    addCarry(carry, s, 1);
+    return false;
+  }
+  unplanted.delete(key(p));
+  if (ctx.skill("grow")) boneMeal(dim, p, watched);
+  if (watched) {
+    dim.playSound("dig.grass", center(p));
+    lookAt(e, center(p));
+  }
+  return true;
+}
+
+/**
+ * 植林名人：骨粉の効果（次の成長のタイミングで木になる）
+ * @param {import("@minecraft/server").Dimension} dim
+ * @param {import("../core/registry.js").Pos} p
+ * @param {boolean} watched
+ */
+function boneMeal(dim, p, watched) {
+  const b = safeBlock(dim, p);
+  if (!b) return;
+  try {
+    b.setPermutation(b.permutation.withState("age_bit", true));
+  } catch (err) {
+    // age_bit が無い苗木（マングローブ等）は何もしない
+  }
+  if (watched) dim.spawnParticle("minecraft:crop_growth_emitter", center(p));
+}
 
 /**
  * 木を1本丸ごと切り倒す（Lv10 の特技）
@@ -279,25 +444,10 @@ function afterTree(ctx, logType, leavesDone = false) {
     collectLeaves(ctx, logType, cleared);
     if (watched && cleared.n > 0) dim.playSound("dig.grass", e.location);
   }
-  if (!ctx.opt("replant")) {
-    // 開拓したいときは植え直さない（苗木は持ち帰る）
-    if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], 1);
-    return;
-  }
-  const planted = replant(dim, task.data.bases ?? [], logType);
-  if (ctx.skill("grow")) {
-    for (const p of planted) {
-      const b = safeBlock(dim, p);
-      if (!b) continue;
-      try {
-        // 骨粉の効果: 次の成長のタイミングで木になる
-        b.setPermutation(b.permutation.withState("age_bit", true));
-      } catch (err) {
-        // age_bit が無い苗木（マングローブ等）は何もしない
-      }
-      if (watched) dim.spawnParticle("minecraft:crop_growth_emitter", center(p));
-    }
-  }
+  // 開拓したいときは植え直さない
+  if (!ctx.opt("replant")) return;
+  const planted = replant(ctx, task.data.bases ?? [], logType);
+  if (ctx.skill("grow")) for (const p of planted) boneMeal(dim, p, watched);
 }
 
 /**
@@ -380,7 +530,7 @@ const NEAR = [
  * @param {{ n: number, kinds: Record<string, number> }} cleared
  */
 function collectLeaves(ctx, logType, cleared) {
-  leafDrops(ctx.carry, logType, cleared.n);
+  leafDrops(ctx.carry, logType, cleared.n, ctx.opt("replant") ? ctx.bag : undefined);
   if (ctx.opt("leaf_blocks")) for (const id of Object.keys(cleared.kinds)) addCarry(ctx.carry, id, cleared.kinds[id]);
 }
 
@@ -389,39 +539,53 @@ function collectLeaves(ctx, logType, cleared) {
  * @param {Record<string, number>} carry
  * @param {string} logType
  * @param {number} leaves 片付けた葉の数
+ * @param {Record<string, number>} [bag] 道具袋（苗木を入れる）
  */
-function leafDrops(carry, logType, leaves) {
+function leafDrops(carry, logType, leaves, bag) {
   if (leaves <= 0) return;
   const roll = (per) => Math.floor(leaves / per) + (Math.random() < (leaves % per) / per ? 1 : 0);
   addCarry(carry, "minecraft:stick", roll(20));
-  if (SAPLINGS[logType]) addCarry(carry, SAPLINGS[logType], roll(25));
+  const s = SAPLINGS[logType];
+  if (s) {
+    // 苗木は植え直しに使うので道具袋へ（いっぱいなら倉庫へ運ぶ）
+    const n = roll(25);
+    const toBag = bag ? Math.max(0, Math.min(n, BAG_MAX - saplingCount(bag))) : 0;
+    if (bag && toBag > 0) bag[s] = (bag[s] ?? 0) + toBag;
+    addCarry(carry, s, n - toBag);
+  }
   if (logType === "minecraft:oak_log" || logType === "minecraft:dark_oak_log") addCarry(carry, "minecraft:apple", roll(40));
 }
 
 /**
- * 切り終わった木の根元に苗木を植える
- * @param {import("@minecraft/server").Dimension} dim
+ * 切り終わった木の根元に苗木を植える（道具袋の苗木を使う。無ければ持ち物、それも無ければ後で植えに来る）
+ * @param {import("../core/registry.js").WorkContext} ctx
  * @param {import("../core/registry.js").Pos[]} allBases
  * @param {string} logType
  */
-function replant(dim, allBases, logType) {
+function replant(ctx, allBases, logType) {
+  const dim = ctx.e.dimension;
   /** @type {import("../core/registry.js").Pos[]} */
   const planted = [];
   const sapling = SAPLINGS[logType];
   if (!sapling) return planted;
+  recentSaplings.set(sapling, system.currentTick);
   // 2x2 の木（ダークオークなど）は4本、それ以外は1本
   const big = sapling === "minecraft:dark_oak_sapling" || sapling === "minecraft:pale_oak_sapling";
   const bases = big ? allBases.slice(0, 4) : allBases.slice(0, 1);
   for (const p of bases) {
     const b = safeBlock(dim, p);
     const below = safeBlock(dim, { x: p.x, y: p.y - 1, z: p.z });
-    if (b && below && b.isAir && SOIL.has(below.typeId)) {
-      try {
-        b.setType(sapling);
-        planted.push(p);
-      } catch (e) {
-        // 植えられない場合は諦める
-      }
+    if (!b || !below || !b.isAir || !SOIL.has(below.typeId)) continue;
+    if (!useSapling(ctx.bag, ctx.carry, sapling)) {
+      unplanted.set(key(p), { p, sapling });
+      continue;
+    }
+    try {
+      b.setType(sapling);
+      planted.push(p);
+    } catch (e) {
+      // 植えられない場合は苗木を持ち帰る
+      addCarry(ctx.carry, sapling, 1);
     }
   }
   return planted;
