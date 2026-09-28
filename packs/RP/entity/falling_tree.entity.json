@@ -26,7 +26,11 @@
         "log_pale_oak": "textures/blocks/pale_oak_log_side",
         "leaves_pale_oak": "textures/blocks/pale_oak_leaves",
         "log_poplar": "textures/blocks/poplar_log_side",
-        "leaves_poplar": "textures/blocks/orange_poplar_leaves"
+        "leaves_poplar": "textures/blocks/orange_poplar_leaves",
+        "log_crimson": "textures/blocks/huge_fungus/crimson_log_side",
+        "leaves_crimson": "textures/blocks/nether_wart_block",
+        "log_warped": "textures/blocks/huge_fungus/warped_stem_side",
+        "leaves_warped": "textures/blocks/warped_wart_block"
       },
       "geometry": {
         "default": "geometry.blockai.falling_tree"

@@ -17,6 +17,8 @@ const SOIL = new Set([
   "minecraft:mud",
   "minecraft:muddy_mangrove_roots",
   "minecraft:dirt_with_roots",
+  "minecraft:crimson_nylium",
+  "minecraft:warped_nylium",
 ]);
 
 /** @type {Record<string, string>} */
@@ -31,7 +33,12 @@ const SAPLINGS = {
   "minecraft:mangrove_log": "minecraft:mangrove_propagule",
   "minecraft:pale_oak_log": "minecraft:pale_oak_sapling",
   "minecraft:poplar_log": "minecraft:poplar_sapling",
+  "minecraft:crimson_stem": "minecraft:crimson_fungus",
+  "minecraft:warped_stem": "minecraft:warped_fungus",
 };
+
+/** 木に付いている物（作業設定「木に付いている物も持ち帰る」）：棚のキノコは幹の横、シュルームライトはネザーの木の傘の中 */
+const EXTRAS = new Set(["minecraft:shelf_mushroom", "minecraft:shroomlight"]);
 
 /** 倒木モデルの木の種類（tools/gen-tree.mjs の WOODS と同じ順番） */
 const WOODS = [
@@ -45,6 +52,8 @@ const WOODS = [
   "minecraft:mangrove_log",
   "minecraft:pale_oak_log",
   "minecraft:poplar_log",
+  "minecraft:crimson_stem",
+  "minecraft:warped_stem",
 ];
 
 /** 苗木（道具袋に持つ分。合計） */
@@ -54,7 +63,7 @@ const TAKE_EACH = 8;
 /** 植え直しの仕事が消えるまで（誰も受け持たないとき） */
 const PLANT_TTL = 1200;
 /** 近くに落ちていたら拾う物（葉が自然に消えて落ちた苗木など） */
-const PICKUP = new Set([...Object.values(SAPLINGS), "minecraft:stick", "minecraft:apple"]);
+const PICKUP = new Set([...Object.values(SAPLINGS), "minecraft:stick", "minecraft:apple", ...EXTRAS]);
 
 /** 苗木が無くて植え直せなかった根元 → 苗木の種類 */
 /** @type {Map<string, { p: import("../core/registry.js").Pos, sapling: string }>} */
@@ -69,7 +78,7 @@ const heldSaplings = new Map();
 /** @param {Record<string, number>} bag */
 function saplingCount(bag) {
   let n = 0;
-  for (const s of PICKUP) if (s !== "minecraft:stick" && s !== "minecraft:apple") n += bag[s] ?? 0;
+  for (const s of Object.values(SAPLINGS)) n += bag[s] ?? 0;
   return n;
 }
 
@@ -104,12 +113,19 @@ function useSapling(bag, carry, s) {
 
 /** @param {string} id */
 function isLog(id) {
-  return id.endsWith("_log") && !id.includes("stripped");
+  if (id.includes("stripped")) return false;
+  return id.endsWith("_log") || id === "minecraft:crimson_stem" || id === "minecraft:warped_stem";
 }
 
 /** @param {string} id */
 function isLeaves(id) {
-  return id.endsWith("_leaves") || id === "minecraft:azalea_leaves_flowered";
+  // ネザーの木の傘（ウォートブロック）も葉として扱う（persistent_bit が無いので、いつも自然の葉）
+  return (
+    id.endsWith("_leaves") ||
+    id === "minecraft:azalea_leaves_flowered" ||
+    id === "minecraft:nether_wart_block" ||
+    id === "minecraft:warped_wart_block"
+  );
 }
 
 /** 幹を探して下へたどるときに通り抜けてよいブロック @param {string} id */
@@ -121,7 +137,11 @@ function isPassable(id) {
     id === "minecraft:snow_layer" ||
     id.endsWith("_propagule") ||
     id === "minecraft:bee_nest" ||
-    id === "minecraft:cocoa"
+    id === "minecraft:cocoa" ||
+    id === "minecraft:shelf_mushroom" ||
+    id === "minecraft:shroomlight" ||
+    id === "minecraft:weeping_vines" ||
+    id === "minecraft:twisting_vines"
   );
 }
 
@@ -138,6 +158,7 @@ registerJob({
   options: [
     { id: "replant", label: "切った後に苗木を植え直す", default: true },
     { id: "leaf_blocks", label: "葉っぱ払い（Lv5）のとき、葉っぱのブロックも持ち帰る", default: false },
+    { id: "extras", label: "木に付いている物も持ち帰る（棚のキノコ・シュルームライト）", default: true },
   ],
   skills: [
     { id: "leaves", level: 5, name: "葉っぱ払い", description: "木を切り終えると葉もきれいに片付け、リンゴ・棒・苗木を拾ってくる" },
@@ -247,6 +268,7 @@ registerJob({
     const b = safeBlock(dim, p);
     if (!b || !isLog(b.typeId)) return false;
     const logType = b.typeId;
+    takeShelves(ctx, p);
     b.setType("minecraft:air");
     addCarry(carry, logType, 1);
     if (watched) {
@@ -364,8 +386,12 @@ function fellTree(ctx) {
   const base = logs.find((p) => p.y === minY) ?? logs[0];
 
   // 原木と、その木の自然の葉を消す（倒れた木のモデルに置き換える）
-  for (const p of logs) safeBlock(dim, p)?.setType("minecraft:air");
-  const leaves = clearLeaves(dim, task.data.box ?? boxOf(logs));
+  for (const p of logs) {
+    takeShelves(ctx, p);
+    safeBlock(dim, p)?.setType("minecraft:air");
+  }
+  const leaves = clearLeaves(dim, task.data.box ?? boxOf(logs), opt("extras"));
+  addExtras(ctx, leaves);
   if (ctx.skill("leaves")) collectLeaves(ctx, mainLog, leaves);
   for (const id of Object.keys(counts)) addCarry(carry, id, counts[id]);
 
@@ -440,7 +466,8 @@ function afterTree(ctx, logType, leavesDone = false) {
   const { e, task, carry, watched } = ctx;
   const dim = e.dimension;
   if (!leavesDone && ctx.skill("leaves") && task.data.box) {
-    const cleared = clearLeaves(dim, task.data.box);
+    const cleared = clearLeaves(dim, task.data.box, ctx.opt("extras"));
+    addExtras(ctx, cleared);
     collectLeaves(ctx, logType, cleared);
     if (watched && cleared.n > 0) dim.playSound("dig.grass", e.location);
   }
@@ -469,22 +496,30 @@ function boxOf(logs) {
  * 木の周りの自然の葉を消す（プレイヤーが置いた葉は残す）。消した数を返す
  * @param {import("@minecraft/server").Dimension} dim
  * @param {{minX:number,maxX:number,minY:number,maxY:number,minZ:number,maxZ:number}} box
+ * @param {boolean} [withExtras] シュルームライトも片付ける
  */
-function clearLeaves(dim, box) {
+function clearLeaves(dim, box, withExtras = false) {
   /** @type {Record<string, number>} 片付けた葉の種類と数 */
   const kinds = {};
+  /** @type {Record<string, number>} 一緒に片付けた、木に付いている物（シュルームライト） */
+  const extras = {};
   let n = 0;
   /** @param {import("@minecraft/server").Block | undefined} b */
-  const natural = (b) => !!b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true;
+  const natural = (b) =>
+    !!b &&
+    ((isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true) || (withExtras && b.typeId === "minecraft:shroomlight"));
   /** @type {import("../core/registry.js").Pos[]} */
   let front = [];
   /** @param {import("../core/registry.js").Pos} p */
   const take = (p) => {
     const b = safeBlock(dim, p);
     if (!b || !natural(b)) return;
-    kinds[b.typeId] = (kinds[b.typeId] ?? 0) + 1;
+    if (EXTRAS.has(b.typeId)) extras[b.typeId] = (extras[b.typeId] ?? 0) + 1;
+    else {
+      kinds[b.typeId] = (kinds[b.typeId] ?? 0) + 1;
+      n++;
+    }
     b.setType("minecraft:air");
-    n++;
     front.push(p);
   };
   for (let x = box.minX - 3; x <= box.maxX + 3; x++) {
@@ -510,7 +545,7 @@ function clearLeaves(dim, box) {
       }
     }
   }
-  return { n, kinds };
+  return { n, kinds, extras };
 }
 
 /** となり6方向 */
@@ -522,6 +557,32 @@ const NEAR = [
   [0, 0, 1],
   [0, 0, -1],
 ];
+
+/**
+ * 片付けた葉と一緒に取った、木に付いている物を持ち物へ
+ * @param {import("../core/registry.js").WorkContext} ctx
+ * @param {{ extras: Record<string, number> }} cleared
+ */
+function addExtras(ctx, cleared) {
+  for (const id of Object.keys(cleared.extras)) addCarry(ctx.carry, id, cleared.extras[id]);
+}
+
+/**
+ * 幹の横に付いている棚のキノコを取る（作業設定がONのとき）
+ * @param {import("../core/registry.js").WorkContext} ctx
+ * @param {import("../core/registry.js").Pos} p 幹
+ */
+function takeShelves(ctx, p) {
+  if (!ctx.opt("extras")) return;
+  const dim = ctx.e.dimension;
+  for (const [dx, , dz] of NEAR) {
+    if (dx === 0 && dz === 0) continue;
+    const b = safeBlock(dim, { x: p.x + dx, y: p.y, z: p.z + dz });
+    if (!b || b.typeId !== "minecraft:shelf_mushroom") continue;
+    b.setType("minecraft:air");
+    addCarry(ctx.carry, "minecraft:shelf_mushroom", 1);
+  }
+}
 
 /**
  * 葉っぱ払いの収穫：リンゴ・棒・苗木。設定がONなら葉っぱのブロックそのものも持ち帰る
@@ -542,7 +603,8 @@ function collectLeaves(ctx, logType, cleared) {
  * @param {Record<string, number>} [bag] 道具袋（苗木を入れる）
  */
 function leafDrops(carry, logType, leaves, bag) {
-  if (leaves <= 0) return;
+  // ネザーの木の傘（ウォートブロック）からは棒もキノコも出ない
+  if (leaves <= 0 || logType.endsWith("_stem")) return;
   const roll = (per) => Math.floor(leaves / per) + (Math.random() < (leaves % per) / per ? 1 : 0);
   addCarry(carry, "minecraft:stick", roll(20));
   const s = SAPLINGS[logType];

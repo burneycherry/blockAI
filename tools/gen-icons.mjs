@@ -28,6 +28,11 @@ const CUBES = {
   mangrove_log: ["mangrove_log_top.png", "mangrove_log_side.png"],
   pale_oak_log: ["pale_oak_log_top.png", "pale_oak_log_side.png"],
   poplar_log: ["poplar_log_top.png", "poplar_log_side.png"],
+  crimson_stem: ["huge_fungus/crimson_log_top.png", "huge_fungus/crimson_log_side.png"],
+  warped_stem: ["huge_fungus/warped_stem_top.png", "huge_fungus/warped_stem_side.png"],
+  nether_wart_block: ["nether_wart_block.png", "nether_wart_block.png"],
+  warped_wart_block: ["warped_wart_block.png", "warped_wart_block.png"],
+  shroomlight: ["shroomlight.png", "shroomlight.png"],
   // 葉（持ち物の欄と同じ、色付きの carried を使う）
   leaves_oak: ["leaves_oak_carried.tga", "leaves_oak_carried.tga"],
   leaves_spruce: ["leaves_spruce_carried.tga", "leaves_spruce_carried.tga"],

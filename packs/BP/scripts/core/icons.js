@@ -19,6 +19,8 @@ const ICONS = {
   "minecraft:mangrove_log": `${C}mangrove_log`,
   "minecraft:pale_oak_log": `${C}pale_oak_log`,
   "minecraft:poplar_log": `${C}poplar_log`,
+  "minecraft:crimson_stem": `${C}crimson_stem`,
+  "minecraft:warped_stem": `${C}warped_stem`,
   // 苗木
   "minecraft:oak_sapling": `${B}sapling_oak`,
   "minecraft:spruce_sapling": `${B}sapling_spruce`,
@@ -30,6 +32,8 @@ const ICONS = {
   "minecraft:mangrove_propagule": `${B}mangrove_propagule`,
   "minecraft:pale_oak_sapling": `${B}pale_oak_sapling`,
   "minecraft:poplar_sapling": `${B}poplar_sapling`,
+  "minecraft:crimson_fungus": `${B}crimson_fungus`,
+  "minecraft:warped_fungus": `${B}warped_fungus`,
   // 葉
   "minecraft:oak_leaves": `${C}leaves_oak`,
   "minecraft:spruce_leaves": `${C}leaves_spruce`,
@@ -43,6 +47,11 @@ const ICONS = {
   "minecraft:orange_poplar_leaves": `${C}leaves_orange_poplar`,
   "minecraft:red_poplar_leaves": `${C}leaves_red_poplar`,
   "minecraft:yellow_poplar_leaves": `${C}leaves_yellow_poplar`,
+  "minecraft:nether_wart_block": `${C}nether_wart_block`,
+  "minecraft:warped_wart_block": `${C}warped_wart_block`,
+  // 木に付いている物
+  "minecraft:shroomlight": `${C}shroomlight`,
+  "minecraft:shelf_mushroom": `${B}shelf_mushroom_small`,
   // 作物・種
   "minecraft:wheat": `${I}wheat`,
   "minecraft:wheat_seeds": `${I}seeds_wheat`,

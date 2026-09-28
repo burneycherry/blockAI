@@ -14,7 +14,9 @@
             "Texture.log_cherry",
             "Texture.log_mangrove",
             "Texture.log_pale_oak",
-            "Texture.log_poplar"
+            "Texture.log_poplar",
+            "Texture.log_crimson",
+            "Texture.log_warped"
           ]
         }
       },
@@ -94,7 +96,9 @@
             "Texture.leaves_cherry",
             "Texture.leaves_mangrove",
             "Texture.leaves_pale_oak",
-            "Texture.leaves_poplar"
+            "Texture.leaves_poplar",
+            "Texture.leaves_crimson",
+            "Texture.leaves_warped"
           ]
         }
       },
