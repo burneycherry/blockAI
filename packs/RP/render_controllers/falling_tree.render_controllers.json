@@ -13,7 +13,8 @@
             "Texture.log_dark_oak",
             "Texture.log_cherry",
             "Texture.log_mangrove",
-            "Texture.log_pale_oak"
+            "Texture.log_pale_oak",
+            "Texture.log_poplar"
           ]
         }
       },
@@ -92,7 +93,8 @@
             "Texture.leaves_dark_oak",
             "Texture.leaves_cherry",
             "Texture.leaves_mangrove",
-            "Texture.leaves_pale_oak"
+            "Texture.leaves_pale_oak",
+            "Texture.leaves_poplar"
           ]
         }
       },

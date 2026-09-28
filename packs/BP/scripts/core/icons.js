@@ -18,6 +18,7 @@ const ICONS = {
   "minecraft:cherry_log": `${C}cherry_log`,
   "minecraft:mangrove_log": `${C}mangrove_log`,
   "minecraft:pale_oak_log": `${C}pale_oak_log`,
+  "minecraft:poplar_log": `${C}poplar_log`,
   // 苗木
   "minecraft:oak_sapling": `${B}sapling_oak`,
   "minecraft:spruce_sapling": `${B}sapling_spruce`,
@@ -28,6 +29,7 @@ const ICONS = {
   "minecraft:cherry_sapling": `${B}cherry_sapling`,
   "minecraft:mangrove_propagule": `${B}mangrove_propagule`,
   "minecraft:pale_oak_sapling": `${B}pale_oak_sapling`,
+  "minecraft:poplar_sapling": `${B}poplar_sapling`,
   // 葉
   "minecraft:oak_leaves": `${C}leaves_oak`,
   "minecraft:spruce_leaves": `${C}leaves_spruce`,
@@ -38,6 +40,9 @@ const ICONS = {
   "minecraft:cherry_leaves": `${C}leaves_cherry`,
   "minecraft:mangrove_leaves": `${C}leaves_mangrove`,
   "minecraft:pale_oak_leaves": `${C}leaves_pale_oak`,
+  "minecraft:orange_poplar_leaves": `${C}leaves_orange_poplar`,
+  "minecraft:red_poplar_leaves": `${C}leaves_red_poplar`,
+  "minecraft:yellow_poplar_leaves": `${C}leaves_yellow_poplar`,
   // 作物・種
   "minecraft:wheat": `${I}wheat`,
   "minecraft:wheat_seeds": `${I}seeds_wheat`,

@@ -17,6 +17,7 @@ const WOODS = [
   ["cherry", "textures/blocks/cherry_log_side", "textures/blocks/cherry_leaves"],
   ["mangrove", "textures/blocks/mangrove_log_side", "textures/blocks/mangrove_leaves_carried"],
   ["pale_oak", "textures/blocks/pale_oak_log_side", "textures/blocks/pale_oak_leaves"],
+  ["poplar", "textures/blocks/poplar_log_side", "textures/blocks/orange_poplar_leaves"],
 ];
 
 const check = process.argv.includes("--check");

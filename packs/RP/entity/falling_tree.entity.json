@@ -24,7 +24,9 @@
         "log_mangrove": "textures/blocks/mangrove_log_side",
         "leaves_mangrove": "textures/blocks/mangrove_leaves_carried",
         "log_pale_oak": "textures/blocks/pale_oak_log_side",
-        "leaves_pale_oak": "textures/blocks/pale_oak_leaves"
+        "leaves_pale_oak": "textures/blocks/pale_oak_leaves",
+        "log_poplar": "textures/blocks/poplar_log_side",
+        "leaves_poplar": "textures/blocks/orange_poplar_leaves"
       },
       "geometry": {
         "default": "geometry.blockai.falling_tree"

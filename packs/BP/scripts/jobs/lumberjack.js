@@ -28,6 +28,7 @@ const SAPLINGS = {
   "minecraft:cherry_log": "minecraft:cherry_sapling",
   "minecraft:mangrove_log": "minecraft:mangrove_propagule",
   "minecraft:pale_oak_log": "minecraft:pale_oak_sapling",
+  "minecraft:poplar_log": "minecraft:poplar_sapling",
 };
 
 /** 倒木モデルの木の種類（tools/gen-tree.mjs の WOODS と同じ順番） */
@@ -41,6 +42,7 @@ const WOODS = [
   "minecraft:cherry_log",
   "minecraft:mangrove_log",
   "minecraft:pale_oak_log",
+  "minecraft:poplar_log",
 ];
 
 /** @param {string} id */
@@ -322,20 +324,54 @@ function clearLeaves(dim, box) {
   /** @type {Record<string, number>} 片付けた葉の種類と数 */
   const kinds = {};
   let n = 0;
+  /** @param {import("@minecraft/server").Block | undefined} b */
+  const natural = (b) => !!b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true;
+  /** @type {import("../core/registry.js").Pos[]} */
+  let front = [];
+  /** @param {import("../core/registry.js").Pos} p */
+  const take = (p) => {
+    const b = safeBlock(dim, p);
+    if (!b || !natural(b)) return;
+    kinds[b.typeId] = (kinds[b.typeId] ?? 0) + 1;
+    b.setType("minecraft:air");
+    n++;
+    front.push(p);
+  };
   for (let x = box.minX - 3; x <= box.maxX + 3; x++) {
     for (let z = box.minZ - 3; z <= box.maxZ + 3; z++) {
-      for (let y = box.minY; y <= box.maxY + 3; y++) {
-        const b = safeBlock(dim, { x, y, z });
-        if (b && isLeaves(b.typeId) && b.permutation.getState("persistent_bit") !== true) {
-          kinds[b.typeId] = (kinds[b.typeId] ?? 0) + 1;
-          b.setType("minecraft:air");
-          n++;
-        }
+      for (let y = box.minY; y <= box.maxY + 3; y++) take({ x, y, z });
+    }
+  }
+  // 形の大きい木（ポプラなど）：残った葉を、つながりをたどって片付ける（隣の木の幹に付いている葉は残す）
+  const touchesLog = (/** @type {import("../core/registry.js").Pos} */ p) =>
+    NEAR.some(([dx, dy, dz]) => {
+      const b = safeBlock(dim, { x: p.x + dx, y: p.y + dy, z: p.z + dz });
+      return !!b && isLog(b.typeId);
+    });
+  for (let step = 0; step < 5 && front.length > 0 && n < 600; step++) {
+    const cur = front;
+    front = [];
+    for (const p of cur) {
+      for (const [dx, dy, dz] of NEAR) {
+        const q = { x: p.x + dx, y: p.y + dy, z: p.z + dz };
+        if (q.x < box.minX - 8 || q.x > box.maxX + 8 || q.z < box.minZ - 8 || q.z > box.maxZ + 8) continue;
+        if (q.y < box.minY || q.y > box.maxY + 8) continue;
+        if (natural(safeBlock(dim, q)) && !touchesLog(q)) take(q);
       }
     }
   }
   return { n, kinds };
 }
+
+/** となり6方向 */
+const NEAR = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+];
 
 /**
  * 葉っぱ払いの収穫：リンゴ・棒・苗木。設定がONなら葉っぱのブロックそのものも持ち帰る

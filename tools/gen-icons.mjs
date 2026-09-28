@@ -27,6 +27,7 @@ const CUBES = {
   cherry_log: ["cherry_log_top.png", "cherry_log_side.png"],
   mangrove_log: ["mangrove_log_top.png", "mangrove_log_side.png"],
   pale_oak_log: ["pale_oak_log_top.png", "pale_oak_log_side.png"],
+  poplar_log: ["poplar_log_top.png", "poplar_log_side.png"],
   // 葉（持ち物の欄と同じ、色付きの carried を使う）
   leaves_oak: ["leaves_oak_carried.tga", "leaves_oak_carried.tga"],
   leaves_spruce: ["leaves_spruce_carried.tga", "leaves_spruce_carried.tga"],
@@ -37,6 +38,9 @@ const CUBES = {
   leaves_cherry: ["cherry_leaves.tga", "cherry_leaves.tga"],
   leaves_mangrove: ["mangrove_leaves_carried.tga", "mangrove_leaves_carried.tga"],
   leaves_pale_oak: ["pale_oak_leaves.tga", "pale_oak_leaves.tga"],
+  leaves_orange_poplar: ["orange_poplar_leaves.png", "orange_poplar_leaves.png"],
+  leaves_red_poplar: ["red_poplar_leaves.png", "red_poplar_leaves.png"],
+  leaves_yellow_poplar: ["yellow_poplar_leaves.png", "yellow_poplar_leaves.png"],
   // そのほかのブロック
   dirt: ["dirt.png", "dirt.png"],
   cobblestone: ["cobblestone.png", "cobblestone.png"],

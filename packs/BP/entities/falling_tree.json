@@ -19,7 +19,7 @@
           "type": "int",
           "range": [
             0,
-            8
+            9
           ],
           "default": 0,
           "client_sync": true

@@ -9,6 +9,7 @@ export function decodePng(buf) {
   let w = 0;
   let h = 0;
   let type = 0;
+  let depth = 8;
   /** @type {Buffer[]} */
   const idat = [];
   let plte = Buffer.alloc(0);
@@ -20,8 +21,9 @@ export function decodePng(buf) {
     if (t === "IHDR") {
       w = d.readUInt32BE(0);
       h = d.readUInt32BE(4);
-      if (d[8] !== 8) throw new Error("8bit の PNG だけ読めます");
+      depth = d[8];
       type = d[9];
+      if (depth !== 8 && !(type === 3 && depth < 8)) throw new Error("8bit の PNG（パレットは1〜8bit）だけ読めます");
     } else if (t === "PLTE") plte = d;
     else if (t === "tRNS") trns = d;
     else if (t === "IDAT") idat.push(d);
@@ -30,7 +32,7 @@ export function decodePng(buf) {
   const bpp = { 6: 4, 2: 3, 3: 1, 4: 2, 0: 1 }[type];
   if (!bpp) throw new Error(`PNG の形式 ${type} は読めません`);
   const raw = inflateSync(Buffer.concat(idat));
-  const stride = w * bpp;
+  const stride = depth < 8 ? Math.ceil((w * depth) / 8) : w * bpp;
   const cur = Buffer.alloc(stride);
   const prev = Buffer.alloc(stride);
   const px = new Uint8Array(w * h * 4);
@@ -57,6 +59,13 @@ export function decodePng(buf) {
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4;
       const s = x * bpp;
+      if (depth < 8) {
+        // 1〜4bit のパレット：1バイトに複数の点が詰まっている
+        const bit = x * depth;
+        const k = (cur[bit >> 3] >> (8 - depth - (bit & 7))) & ((1 << depth) - 1);
+        px.set([plte[k * 3], plte[k * 3 + 1], plte[k * 3 + 2], k < trns.length ? trns[k] : 255], o);
+        continue;
+      }
       if (type === 6) px.set(cur.subarray(s, s + 4), o);
       else if (type === 2) px.set([cur[s], cur[s + 1], cur[s + 2], 255], o);
       else if (type === 3) {

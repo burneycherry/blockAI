@@ -361,6 +361,8 @@ export function noteHurt(e, tick) {
  * @param {string} jobId
  */
 export function setJob(e, jobId) {
+  // 前の職業の荷物・道具袋（種など）を持っていたら、まず倉庫へ戻しに行く
+  if (carryTotal(getCarry(e)) > 0 || carryTotal(getBag(e)) > 0) e.setDynamicProperty("blockai:return", true);
   e.setDynamicProperty("blockai:job", jobId);
   resetScanWait();
   applyLooks(e);
@@ -742,7 +744,7 @@ function decide(e, st, village, tick, job, total, cap) {
     st.status = "§6作業休止中";
     return;
   }
-  if (total >= cap) {
+  if (total >= cap || (e.getDynamicProperty("blockai:return") === true && hasStorage(village))) {
     goStorage(e, st, village, tick);
     return;
   }
@@ -1124,6 +1126,14 @@ function deposit(e, village, carry) {
   if (!point) return "missing";
   const result = depositInto(village, point, carry, (id, n) => addStat(id, n));
   if (result === "missing") return result;
+  // 職業を変えた後：前の職業の道具袋の中身を倉庫へ戻す
+  if (e.getDynamicProperty("blockai:return") === true) {
+    const src = sourceOf(village, point);
+    const bag = getBag(e);
+    if (src) for (const k of Object.keys(bag)) if (bag[k] > 0) bag[k] -= src.put(k, bag[k]);
+    setBag(e, bag);
+    if (result === "ok") e.setDynamicProperty("blockai:return", undefined);
+  }
   // 職業ごとに、倉庫から材料を持ち出す（農家の種など）
   const job = getJob(e);
   const source = job.onStorage ? sourceOf(village, point) : undefined;
